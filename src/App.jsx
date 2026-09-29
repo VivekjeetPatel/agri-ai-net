@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Activity, ArrowDownRight, ArrowRight, ArrowUpRight, Bell, Check, ChevronDown, ChevronLeft, ChevronRight, Cloud, CloudSun, Droplets, FileImage, Globe2, HelpCircle, Leaf, MapPin, Menu, MoreHorizontal, Plus, ScanLine, Search, Settings, ShieldCheck, Sprout, Sun, Thermometer, Upload, Wheat, Wind, X } from 'lucide-react';
 
 const initialFields = [
@@ -8,10 +8,36 @@ const initialFields = [
 ];
 const nav = [{ id: 'overview', icon: Activity, label: 'Overview' }, { id: 'diagnostics', icon: ScanLine, label: 'Crop diagnostics' }, { id: 'fields', icon: MapPin, label: 'My fields' }, { id: 'climate', icon: CloudSun, label: 'Climate & irrigation' }, { id: 'network', icon: Globe2, label: 'BRICS network' }];
 
+const countryLanguages = {
+  India: ['Hindi', 'Punjabi', 'Marathi', 'Tamil', 'Telugu', 'Gujarati'],
+  Brazil: ['Portuguese (Brazil)'],
+  Russia: ['Russian', 'Tatar', 'Bashkir', 'Chechen', 'Chuvash', 'Avar', 'Yakut (Sakha)'],
+  China: ['Mandarin (China)', 'Cantonese', 'Wu (Shanghainese)', 'Min Nan', 'Hakka', 'Tibetan', 'Uyghur', 'Mongolian'],
+  'South Africa': ['English (South Africa)', 'Zulu (South Africa)', 'Xhosa', 'Afrikaans', 'Sepedi', 'Setswana', 'Sesotho', 'Xitsonga', 'siSwati', 'Tshivenda', 'isiNdebele'],
+};
+
+const getLanguagesForCountry = (country) => {
+  const localLanguages = countryLanguages[country] || ['English'];
+  const networkLanguages = [...new Set(Object.values(countryLanguages).flat())].filter(language => !localLanguages.includes(language));
+  return { localHeading: `Local Languages – ${country}`, localLanguages, networkHeading: 'BRICS Network Languages', networkLanguages };
+};
+
 function App() {
   const [page, setPage] = useState('overview');
   const [menuOpen, setMenuOpen] = useState(false);
-  const [country, setCountry] = useState('India');
+  const [country, setCountry] = useState(() => {
+    try { const saved = window.localStorage.getItem('fieldwise-country'); return countryLanguages[saved] ? saved : 'India'; }
+    catch { return 'India'; }
+  });
+  const [language, setLanguage] = useState(() => {
+    try {
+      const savedCountry = window.localStorage.getItem('fieldwise-country');
+      const savedLanguage = window.localStorage.getItem('fieldwise-language');
+      const initialCountry = countryLanguages[savedCountry] ? savedCountry : 'India';
+      const allLanguages = [...new Set(Object.values(countryLanguages).flat())];
+      return allLanguages.includes(savedLanguage) ? savedLanguage : getLanguagesForCountry(initialCountry).localLanguages[0];
+    } catch { return 'Punjabi'; }
+  });
   const [fields, setFields] = useState(initialFields);
   const [image, setImage] = useState(null);
   const [diagnosis, setDiagnosis] = useState(null);
@@ -19,6 +45,17 @@ function App() {
   const [showFieldForm, setShowFieldForm] = useState(false);
   const [toast, setToast] = useState('');
   const inputRef = useRef(null);
+  useEffect(() => {
+    try {
+      window.localStorage.setItem('fieldwise-country', country);
+      window.localStorage.setItem('fieldwise-language', language);
+    } catch { /* Storage may be unavailable in private browsing contexts. */ }
+  }, [country, language]);
+  const changeCountry = (nextCountry) => {
+    const { localLanguages } = getLanguagesForCountry(nextCountry);
+    if (!localLanguages.includes(language)) setLanguage(localLanguages[0]);
+    setCountry(nextCountry);
+  };
   const notify = (msg) => { setToast(msg); setTimeout(() => setToast(''), 2600); };
   const analyze = (file) => {
     if (!file) return;
@@ -37,7 +74,7 @@ function App() {
       <div className="sidebar-bottom"><div className="support-card"><div className="support-icon"><HelpCircle size={17}/></div><b>Need a hand?</b><p>Get guidance from a local agronomist.</p><button onClick={() => notify('Agronomist support will be available soon.')}>Contact support <ArrowRight size={14}/></button></div><button className="nav-item" onClick={() => notify('Settings are coming soon.')}><Settings size={18}/><span>Settings</span></button><div className="profile"><div className="profile-avatar">AS</div><div><b>Arjun Singh</b><small>Punjab, India</small></div><MoreHorizontal size={19}/></div></div>
     </aside>
     {menuOpen && <div className="scrim" onClick={() => setMenuOpen(false)} />}
-    <main className="main-area"><header className="topbar"><button className="icon-btn menu-toggle" onClick={() => setMenuOpen(true)}><Menu size={20}/></button><div className="crumb">Workspace <ChevronRight size={14}/> <b>{selected}</b></div><div className="top-actions"><div className="weather-pill"><CloudSun size={17}/><span>28°</span><i>Partly cloudy</i></div><span className="top-divider"/><button className="icon-btn notification" onClick={() => notify('You’re all caught up.')}><Bell size={18}/><i/></button><select className="country-select" value={country} onChange={e => setCountry(e.target.value)} aria-label="Choose region"><option>India</option><option>Brazil</option><option>China</option><option>Russia</option><option>South Africa</option></select></div></header>
+    <main className="main-area"><header className="topbar"><button className="icon-btn menu-toggle" onClick={() => setMenuOpen(true)}><Menu size={20}/></button><div className="crumb">Workspace <ChevronRight size={14}/> <b>{selected}</b></div><div className="top-actions"><div className="weather-pill"><CloudSun size={17}/><span>28°</span><i>Partly cloudy</i></div><span className="top-divider"/><button className="icon-btn notification" onClick={() => notify('You’re all caught up.')}><Bell size={18}/><i/></button><select className="country-select" value={country} onChange={e => changeCountry(e.target.value)} aria-label="Choose region"><option>India</option><option>Brazil</option><option>China</option><option>Russia</option><option>South Africa</option></select><LanguageSelector country={country} language={language} onLanguageChange={setLanguage}/></div></header>
       <div className="content"><div className="page-heading"><div><div className="eyebrow"><Sun size={14}/> MONDAY, 29 SEPTEMBER 2026 <span className="eyebrow-dot">·</span> KHANNA, PUNJAB</div><h1>{page === 'overview' ? 'Good morning, Arjun' : selected}<span className="wave">{page === 'overview' ? ' ☀' : ''}</span></h1><p>{page === 'overview' ? 'Here’s what’s happening across your farm today.' : page === 'diagnostics' ? 'Check crop health with a quick photo from your field.' : page === 'network' ? 'A shared learning network built on locally governed farm data.' : page === 'climate' ? 'Plan ahead with local weather and crop-specific water guidance.' : 'A clear view of crop health across your fields.'}</p></div><button className="date-button"><ChevronLeft size={16}/> This week <ChevronDown size={14}/></button></div>
       {page === 'overview' && <Overview fields={fields} onAdd={() => setShowFieldForm(true)} onPage={setPage} />}
       {page === 'diagnostics' && <Diagnostics image={image} diagnosis={diagnosis} busy={busy} inputRef={inputRef} onFile={analyze} />}
@@ -49,6 +86,31 @@ function App() {
     </main>
     {showFieldForm && <div className="modal-backdrop" onClick={() => setShowFieldForm(false)}><form className="modal" onSubmit={addField} onClick={e => e.stopPropagation()}><button type="button" className="modal-close" onClick={() => setShowFieldForm(false)}><X size={18}/></button><span className="modal-icon"><MapPin size={20}/></span><h2>Add a field</h2><p>Start tracking crop health and local conditions.</p><label>Field name<input name="name" placeholder="e.g. West Meadow" required autoFocus/></label><div className="form-row"><label>Crop<input name="crop" placeholder="e.g. Wheat"/></label><label>Area (hectares)<input name="area" type="number" min="0.1" step="0.1" placeholder="2.5"/></label></div><button className="primary-btn modal-submit" type="submit">Add field <ArrowRight size={16}/></button></form></div>}
     {toast && <div className="toast"><Check size={16}/>{toast}</div>}
+  </div>;
+}
+
+function LanguageSelector({ country, language, onLanguageChange }) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef(null);
+  useEffect(() => {
+    const closeOnOutsideClick = (event) => { if (!rootRef.current?.contains(event.target)) setOpen(false); };
+    const closeOnEscape = (event) => { if (event.key === 'Escape') setOpen(false); };
+    document.addEventListener('mousedown', closeOnOutsideClick);
+    document.addEventListener('keydown', closeOnEscape);
+    return () => { document.removeEventListener('mousedown', closeOnOutsideClick); document.removeEventListener('keydown', closeOnEscape); };
+  }, []);
+  const languageGroups = getLanguagesForCountry(country);
+  return <div className="language-selector" ref={rootRef}>
+    <button className={`icon-btn language-trigger ${open ? 'is-open' : ''}`} onClick={() => setOpen(!open)} aria-label={`Choose language. Current language: ${language}`} title={`Language: ${language}`} aria-haspopup="menu" aria-expanded={open}>
+      <Globe2 size={18}/>
+    </button>
+    {open && <div className="language-dropdown" role="menu" aria-label="Choose language">
+      <div className="language-menu-heading"><b>Language</b><span>Current: {language}</span></div>
+      {[{ title: languageGroups.localHeading, languages: languageGroups.localLanguages }, { title: languageGroups.networkHeading, languages: languageGroups.networkLanguages }].map(group => <div className="language-group" key={group.title}>
+        <div className="language-group-title">{group.title}</div>
+        {group.languages.map(item => <button key={item} role="menuitemradio" aria-checked={language === item} className={`language-option ${language === item ? 'selected' : ''}`} onClick={() => { onLanguageChange(item); setOpen(false); }}><span>{item}</span>{language === item && <Check size={15}/>}</button>)}
+      </div>)}
+    </div>}
   </div>;
 }
 
