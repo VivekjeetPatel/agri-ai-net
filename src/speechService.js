@@ -128,6 +128,22 @@ export const speechTemplates = {
   },
 };
 
+const communitySpeech = {
+  English: { communityIntro: 'Welcome to the Fieldwise community. {postCount} farmer updates are available. Here are a few recent posts.', communityPost: '{author} shared an update about {crops}.', communitySuggestions: 'You have {count} farmer connection suggestions.', communityEnding: 'Share a field update or connect with another farmer.' },
+  'English (South Africa)': { communityIntro: 'Welcome to the Fieldwise community. {postCount} farmer updates are available. Here are a few recent posts.', communityPost: '{author} shared an update about {crops}.', communitySuggestions: 'You have {count} farmer connection suggestions.', communityEnding: 'Share a field update or connect with another farmer.' },
+  Hindi: { communityIntro: 'फील्डवाइज़ समुदाय में आपका स्वागत है। किसानों की {postCount} नई जानकारी उपलब्ध हैं। कुछ हाल की जानकारी सुनिए।', communityPost: '{author} ने {crops} के बारे में जानकारी साझा की है।', communitySuggestions: 'आपके लिए {count} किसानों से जुड़ने के सुझाव हैं।', communityEnding: 'अपने खेत की जानकारी साझा करें या किसी किसान से जुड़ें।' },
+  Punjabi: { communityIntro: 'ਫੀਲਡਵਾਈਜ਼ ਭਾਈਚਾਰੇ ਵਿੱਚ ਜੀ ਆਇਆਂ ਨੂੰ। ਕਿਸਾਨਾਂ ਦੀਆਂ {postCount} ਨਵੀਆਂ ਜਾਣਕਾਰੀਆਂ ਹਨ। ਕੁਝ ਤਾਜ਼ਾ ਜਾਣਕਾਰੀਆਂ ਸੁਣੋ।', communityPost: '{author} ਨੇ {crops} ਬਾਰੇ ਜਾਣਕਾਰੀ ਸਾਂਝੀ ਕੀਤੀ ਹੈ।', communitySuggestions: 'ਤੁਹਾਡੇ ਲਈ {count} ਕਿਸਾਨਾਂ ਨਾਲ ਜੁੜਨ ਦੇ ਸੁਝਾਅ ਹਨ।', communityEnding: 'ਆਪਣੇ ਖੇਤ ਦੀ ਜਾਣਕਾਰੀ ਸਾਂਝੀ ਕਰੋ ਜਾਂ ਕਿਸੇ ਕਿਸਾਨ ਨਾਲ ਜੁੜੋ।' },
+  Marathi: { communityIntro: 'फील्डवाइज समुदायात स्वागत आहे. शेतकऱ्यांच्या {postCount} नवीन नोंदी उपलब्ध आहेत. काही अलीकडील नोंदी ऐका.', communityPost: '{author} यांनी {crops} बद्दल माहिती शेअर केली.', communitySuggestions: 'तुमच्यासाठी {count} शेतकरी संपर्क सूचना आहेत.', communityEnding: 'शेताची माहिती शेअर करा किंवा दुसऱ्या शेतकऱ्याशी जोडा.' },
+  Tamil: { communityIntro: 'Fieldwise சமூகத்திற்கு வரவேற்கிறோம். விவசாயிகளின் {postCount} புதுப்பிப்புகள் உள்ளன. சமீபத்திய சில பதிவுகளைக் கேளுங்கள்.', communityPost: '{author} {crops} பற்றி ஒரு தகவலைப் பகிர்ந்துள்ளார்.', communitySuggestions: 'உங்களுக்காக {count} விவசாயி தொடர்பு பரிந்துரைகள் உள்ளன.', communityEnding: 'உங்கள் வயல் தகவலைப் பகிரவும் அல்லது மற்றொரு விவசாயியுடன் இணையவும்.' },
+  Telugu: { communityIntro: 'ఫీల్డ్‌వైజ్ కమ్యూనిటీకి స్వాగతం. రైతుల {postCount} తాజా వివరాలు ఉన్నాయి. కొన్ని కొత్త పోస్ట్‌లను వినండి.', communityPost: '{author} {crops} గురించి ఒక వివరాన్ని పంచుకున్నారు.', communitySuggestions: 'మీ కోసం {count} రైతుల పరిచయ సూచనలు ఉన్నాయి.', communityEnding: 'మీ పొలం వివరాలను పంచుకోండి లేదా మరో రైతుతో కలవండి.' },
+  Gujarati: { communityIntro: 'ફીલ્ડવાઇઝ સમુદાયમાં આપનું સ્વાગત છે. ખેડૂતોના {postCount} નવા અપડેટ છે. તાજેતરની કેટલીક પોસ્ટ સાંભળો.', communityPost: '{author} એ {crops} વિશે માહિતી શેર કરી છે.', communitySuggestions: 'તમારા માટે {count} ખેડૂત સંપર્ક સૂચનો છે.', communityEnding: 'તમારા ખેતરની માહિતી શેર કરો અથવા બીજા ખેડૂત સાથે જોડાઓ.' },
+  'Portuguese (Brazil)': { communityIntro: 'Bem-vindo à comunidade Fieldwise. Há {postCount} atualizações de agricultores. Ouça algumas publicações recentes.', communityPost: '{author} compartilhou uma atualização sobre {crops}.', communitySuggestions: 'Você tem {count} sugestões de conexão com agricultores.', communityEnding: 'Compartilhe uma atualização da sua plantação ou conecte-se com outro agricultor.' },
+  Russian: { communityIntro: 'Добро пожаловать в сообщество Fieldwise. Доступно обновлений от фермеров: {postCount}. Послушайте несколько последних записей.', communityPost: '{author} поделился новостью о культурах: {crops}.', communitySuggestions: 'Для вас есть предложения связаться с фермерами: {count}.', communityEnding: 'Поделитесь новостью о поле или свяжитесь с другим фермером.' },
+  'Mandarin (China)': { communityIntro: '欢迎来到 Fieldwise 社区。这里有 {postCount} 条农友动态。来听听最近的分享。', communityPost: '{author} 分享了关于 {crops} 的动态。', communitySuggestions: '为您推荐了 {count} 位农友。', communityEnding: '分享田间动态，或与其他农友建立联系。' },
+  'Zulu (South Africa)': { communityIntro: 'Siyakwamukela emphakathini weFieldwise. Kunezibuyekezo zabalimi ezingu-{postCount}. Lalela ezimbalwa zakamuva.', communityPost: '{author} wabelane ngesibuyekezo mayelana ne-{crops}.', communitySuggestions: 'Uneziphakamiso ezingu-{count} zokuxhumana nabalimi.', communityEnding: 'Yabelana ngezindaba zensimu yakho noma uxhumane nomunye umlimi.' },
+};
+Object.entries(communitySpeech).forEach(([language, templates]) => Object.assign(speechTemplates[language] ||= {}, templates));
+
 const spokenDetails = {
   English: { conditionPartlyCloudy: 'partly cloudy', dayThursday: 'Thursday', planAfterRain: 'wait until after Thursday’s rain, then check North Field soil', leafReminder: 'River Bend soybean may have leaf spots. Review the photo check.', waterReminder: 'Water North Field tomorrow. Check the soil first because it is getting dry.', diagnosisTitle: 'Possible leaf spot', diagnosisAdvice: 'Remove badly affected leaves and avoid watering the leaves. Check again in three or four days.' },
   'English (South Africa)': { conditionPartlyCloudy: 'partly cloudy', dayThursday: 'Thursday', planAfterRain: 'wait until after Thursday’s rain, then check North Field soil', leafReminder: 'River Bend soybean may have leaf spots. Review the photo check.', waterReminder: 'Water North Field tomorrow. Check the soil first because it is getting dry.', diagnosisTitle: 'Possible leaf spot', diagnosisAdvice: 'Remove badly affected leaves and avoid watering the leaves. Check again in three or four days.' },
@@ -175,7 +191,7 @@ function alertText(alert, templates) {
 
 const cropNames = (field, language) => (field.crops || (field.crop ? [field.crop] : [])).join(', ') || (language === 'English' ? 'your crop' : '');
 
-export function buildReadingQueue({ page, userName, date, fields = [], activeAlerts = [], notifications = [], language = 'English', diagnosis, diagnosticCrop, weather = {} }) {
+export function buildReadingQueue({ page, userName, date, fields = [], activeAlerts = [], notifications = [], language = 'English', diagnosis, diagnosticCrop, weather = {}, community = {} }) {
   const t = templatesFor(language);
   const queue = [];
   const add = (id, key, values = {}) => { if (t[key]) queue.push({ id, text: fill(t[key], values) }); };
@@ -212,6 +228,16 @@ export function buildReadingQueue({ page, userName, date, fields = [], activeAle
     queue.push({ id: 'irrigation', text: t.waterReminder || 'Water North Field tomorrow and check the soil first.' });
   } else if (page === 'network') {
     add('network', 'networkIntro');
+  } else if (page === 'community') {
+    const farmersById = Object.fromEntries((community.farmers || []).map(farmer => [farmer.id, farmer]));
+    add('community-intro', 'communityIntro', { postCount: community.posts?.length || 0 });
+    (community.posts || []).slice(0, 3).forEach(post => {
+      const author = farmersById[post.authorId]?.name || 'A farmer';
+      const crops = (post.crops || []).map(crop => crop.replaceAll('-', ' ')).join(', ') || 'crops';
+      add(`community-post-${post.id}`, 'communityPost', { author, crops });
+    });
+    add('community-suggestions', 'communitySuggestions', { count: Math.min(5, community.farmers?.length || 0) });
+    add('community-ending', 'communityEnding');
   } else {
     add('page', 'page', { page });
   }

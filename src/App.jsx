@@ -1,8 +1,10 @@
-import React, { useEffect, useId, useMemo, useRef, useState } from 'react';
-import { Activity, ArrowDownRight, ArrowLeft, ArrowRight, ArrowUpRight, Bell, Check, ChevronDown, ChevronLeft, ChevronRight, CircleAlert, Cloud, CloudSun, Droplets, Eye, EyeOff, FileImage, Globe2, HelpCircle, Info, Leaf, LogOut, MapPin, Menu, Moon, MoreHorizontal, Pause, Play, Plus, ScanLine, Search, Settings, ShieldCheck, SkipBack, SkipForward, Sprout, Sun, Thermometer, TriangleAlert, Upload, Volume2, VolumeX, Wheat, Wind, X } from 'lucide-react';
+import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { Activity, ArrowDownRight, ArrowLeft, ArrowRight, ArrowUpRight, Bell, Check, ChevronDown, ChevronLeft, ChevronRight, CircleAlert, Cloud, CloudSun, Droplets, Eye, EyeOff, FileImage, Globe2, HelpCircle, Info, Leaf, LogOut, MapPin, Menu, Moon, MoreHorizontal, Pause, Play, Plus, ScanLine, Search, Settings, ShieldCheck, SkipBack, SkipForward, Sprout, Sun, Thermometer, TriangleAlert, Upload, Users, Volume2, VolumeX, Wheat, Wind, X } from 'lucide-react';
 import { getRememberedUsername, getSessionUser, isAuthenticated, login, logout, setRememberedUsername, signup } from './auth.js';
 import { buildReadingQueue, getSpeechStateLabel, speechLanguageCodes, speechTemplates } from './speechService.js';
 import { useReadAloud } from './useReadAloud.js';
+import CommunityPage from './community/CommunityPage.jsx';
+import { communityData } from './community/communityService.js';
 
 function setTheme(theme) {
   document.documentElement.dataset.theme = theme;
@@ -54,7 +56,19 @@ function formatCropSummary(field) {
   const shown = crops.slice(0, 2).join(', ');
   return crops.length > 2 ? `${shown} +${crops.length - 2}` : shown;
 }
-const nav = [{ id: 'overview', icon: Activity, label: 'Overview' }, { id: 'diagnostics', icon: ScanLine, label: 'Crop diagnostics' }, { id: 'fields', icon: MapPin, label: 'My fields' }, { id: 'climate', icon: CloudSun, label: 'Climate & irrigation' }, { id: 'network', icon: Globe2, label: 'BRICS network' }];
+const nav = [{ id: 'overview', icon: Activity, label: 'Overview' }, { id: 'diagnostics', icon: ScanLine, label: 'Crop diagnostics' }, { id: 'fields', icon: MapPin, label: 'My fields' }, { id: 'climate', icon: CloudSun, label: 'Climate & irrigation' }, { id: 'community', icon: Users, label: 'Community' }, { id: 'network', icon: Globe2, label: 'BRICS network' }];
+const pagePaths = { overview: '/', diagnostics: '/diagnostics', fields: '/fields', climate: '/climate', community: '/community', network: '/network', login: '/login' };
+const pageFromLocation = () => Object.entries(pagePaths).find(([, path]) => path === window.location.pathname)?.[0] || 'overview';
+
+class RouteErrorBoundary extends React.Component {
+  state = { hasError: false };
+  static getDerivedStateFromError() { return { hasError: true }; }
+  componentDidCatch(error, info) { console.error(`Route "${this.props.page}" failed to render.`, error, info); }
+  render() {
+    if (this.state.hasError) return <section className="route-error" role="alert"><div className="route-error-mark"><CircleAlert size={22}/></div><h2>{this.props.page} is having trouble</h2><p>This page could not be loaded. Your other Fieldwise pages are still available.</p><button className="primary-btn" onClick={this.props.onGoDashboard}>Go back to dashboard</button></section>;
+    return this.props.children;
+  }
+}
 
 const countryLanguages = {
   India: ['Hindi', 'Punjabi', 'Marathi', 'Tamil', 'Telugu', 'Gujarati'],
@@ -161,7 +175,12 @@ function SettingsModal({ autoReadCritical, onAutoReadChange, onClose }) {
 
 function App() {
   const [currentUser, setCurrentUser] = useState(getSessionUser);
-  const [page, setPage] = useState(() => isAuthenticated() ? 'overview' : 'login');
+  const [page, setPageState] = useState(() => isAuthenticated() ? pageFromLocation() : 'login');
+  const setPage = useCallback(nextPage => {
+    setPageState(nextPage);
+    const path = pagePaths[nextPage];
+    if (path && window.location.pathname !== path) window.history.pushState({}, '', `${path}${window.location.search}${window.location.hash}`);
+  }, []);
   const [menuOpen, setMenuOpen] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -186,6 +205,8 @@ function App() {
     } catch { return 'Punjabi'; }
   });
   const [fields, setFields] = useState(loadFields);
+  const [communityNarration, setCommunityNarration] = useState(communityData);
+  const handleCommunityDataChange = useCallback(data => setCommunityNarration(current => ({ ...current, ...data })), []);
   const [diagnosticCrop, setDiagnosticCrop] = useState(() => loadFields()[0]?.crops?.[0] || '');
   const [image, setImage] = useState(null);
   const [diagnosis, setDiagnosis] = useState(null);
@@ -194,6 +215,11 @@ function App() {
   const [toast, setToast] = useState('');
   const inputRef = useRef(null);
   const notificationsRef = useRef(null);
+  useEffect(() => {
+    const onPopState = () => setPageState(isAuthenticated() ? pageFromLocation() : 'login');
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, []);
   useEffect(() => {
     try {
       window.localStorage.setItem('fieldwise-country', country);
@@ -243,8 +269,8 @@ function App() {
   const speechQueue = useMemo(() => buildReadingQueue({
     page, userName: currentUser?.fullName?.split(/\s+/)[0], date: new Intl.DateTimeFormat(speechLanguageCodes[language] || 'en-IN', { dateStyle: 'long' }).format(new Date()),
     fields, activeAlerts: activeAlerts.map(alert => ({ ...alert, speechText: translatedAlert(alert, language) })), notifications: activeAlerts.map(alert => ({ ...alert, speechText: translatedAlert(alert, language) })),
-    language, diagnosis, diagnosticCrop, weather: { temperature: 28, condition: speechTemplates[language]?.conditionPartlyCloudy || speechTemplates.English.conditionPartlyCloudy, rainDay: speechTemplates[language]?.dayThursday || 'Thursday', rainAmount: 12 },
-  }), [page, currentUser, fields, activeAlerts, language, diagnosis, diagnosticCrop]);
+    language, diagnosis, diagnosticCrop, community: page === 'community' ? communityNarration : undefined, weather: { temperature: 28, condition: speechTemplates[language]?.conditionPartlyCloudy || speechTemplates.English.conditionPartlyCloudy, rainDay: speechTemplates[language]?.dayThursday || 'Thursday', rainAmount: 12 },
+  }), [page, currentUser, fields, activeAlerts, language, diagnosis, diagnosticCrop, communityNarration]);
   const speech = useReadAloud({ queue: speechQueue, language });
   const handleReadAloud = () => {
     try { window.localStorage.setItem('fieldwise-read-aloud-hint', '1'); } catch { /* Hint preference is optional. */ }
@@ -307,11 +333,14 @@ function App() {
     {menuOpen && <div className="scrim" onClick={() => setMenuOpen(false)} />}
     <main className="main-area">{page === 'overview' && activeAlerts.length > 0 && <AlertRibbon alerts={activeAlerts} language={language} onDismiss={dismissAlert} onNavigate={navigateToAlert} currentReadItem={speech.currentItem}/>}<header className="topbar"><button className="icon-btn menu-toggle" onClick={() => setMenuOpen(true)}><Menu size={20}/></button><div className="crumb">Workspace <ChevronRight size={14}/> <b>{selected}</b></div><div className="top-actions"><div className="weather-pill" data-read-id="weather"><CloudSun size={17}/><span>28°</span><i>Partly cloudy</i></div><span className="top-divider"/><div className="notifications-wrap" ref={notificationsRef}><button className="icon-btn notification" onClick={() => setNotificationsOpen(!notificationsOpen)} aria-label="Open notifications" aria-haspopup="true" aria-expanded={notificationsOpen}><Bell size={18}/>{activeAlerts.length > 0 && <i/>}</button>{notificationsOpen && <div className="notification-dropdown" role="region" aria-label="All notifications"><div className="notification-heading"><b>Notifications</b><span>{alertData.length} updates</span></div>{[...alertData].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)).map(alert => <div className="notification-item" key={alert.id} data-read-id={`notification-${alert.id}`}><span className={`notification-severity ${alert.severity}`}/><div><b>{translatedAlert(alert, language)}</b><small>{alert.priority === 'high' ? 'High priority' : 'Farm update'} · {new Date(alert.timestamp).toLocaleDateString()}</small><button onClick={() => navigateToAlert(alert.actionHref)}>{translatedAction(alert, language)} <ArrowRight size={12}/></button></div></div>)}</div>}</div><select className="country-select" value={country} onChange={e => changeCountry(e.target.value)} aria-label="Choose region"><option>India</option><option>Brazil</option><option>China</option><option>Russia</option><option>South Africa</option></select><LanguageSelector country={country} language={language} onLanguageChange={setLanguage}/><button className="icon-btn theme-toggle" onClick={toggleTheme} title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'} aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}>{theme === 'dark' ? <Sun size={18}/> : <Moon size={18}/>}</button>{speech.supported && <button className={`icon-btn read-aloud-header ${speech.state !== 'idle' ? 'is-speaking' : ''}`} onClick={handleReadAloud} title="Listen to this page" aria-label={speech.state !== 'idle' ? 'Stop reading aloud' : 'Listen to this page'} aria-pressed={speech.state !== 'idle'}>{speech.state === 'idle' ? <Volume2 size={18}/> : <VolumeX size={18}/>}</button>}</div></header>
       <div className="content"><div className="page-heading"><div><div className="eyebrow"><Sun size={14}/> MONDAY, 29 SEPTEMBER 2026 <span className="eyebrow-dot">·</span> KHANNA, PUNJAB</div><h1>{page === 'overview' ? 'Good morning, Arjun' : selected}<span className="wave">{page === 'overview' ? ' ☀' : ''}</span></h1><p>{page === 'overview' ? 'Here’s what’s happening across your farm today.' : page === 'diagnostics' ? 'Check crop health with a quick photo from your field.' : page === 'network' ? 'A shared learning network built on locally governed farm data.' : page === 'climate' ? 'Plan ahead with local weather and crop-specific water guidance.' : 'A clear view of crop health across your fields.'}</p></div><button className="date-button"><ChevronLeft size={16}/> This week <ChevronDown size={14}/></button></div>
-      {page === 'overview' && <Overview fields={fields} onAdd={() => setShowFieldForm(true)} onPage={setPage} />}
-      {page === 'diagnostics' && <Diagnostics image={image} diagnosis={diagnosis} busy={busy} inputRef={inputRef} onFile={analyze} crops={availableCrops} selectedCrop={diagnosticCrop} onCropChange={setDiagnosticCrop} />}
-      {page === 'fields' && <Fields fields={fields} onAdd={() => setShowFieldForm(true)} />}
-      {page === 'climate' && <Climate />}
-      {page === 'network' && <Network country={country} />}
+      <RouteErrorBoundary key={page} page={selected} onGoDashboard={() => setPage('overview')}>
+        {page === 'overview' && <Overview fields={fields} onAdd={() => setShowFieldForm(true)} onPage={setPage} />}
+        {page === 'diagnostics' && <Diagnostics image={image} diagnosis={diagnosis} busy={busy} inputRef={inputRef} onFile={analyze} crops={availableCrops} selectedCrop={diagnosticCrop} onCropChange={setDiagnosticCrop} />}
+        {page === 'fields' && <Fields fields={fields} onAdd={() => setShowFieldForm(true)} />}
+        {page === 'climate' && <Climate />}
+        {page === 'community' && <CommunityPage language={language} onDataChange={handleCommunityDataChange}/>}
+        {page === 'network' && <Network country={country} />}
+      </RouteErrorBoundary>
       <footer className="footer"><span><ShieldCheck size={14}/> Your farm data stays under your control</span><span>FIELDWISE <i>·</i> FARM INTELLIGENCE</span></footer>
       </div>
     </main>
