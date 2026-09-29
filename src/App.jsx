@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Activity, ArrowDownRight, ArrowLeft, ArrowRight, ArrowUpRight, Bell, Check, ChevronDown, ChevronLeft, ChevronRight, CircleAlert, Cloud, CloudSun, Droplets, FileImage, Globe2, HelpCircle, Info, Leaf, MapPin, Menu, Moon, MoreHorizontal, Plus, ScanLine, Search, Settings, ShieldCheck, Sprout, Sun, Thermometer, TriangleAlert, Upload, Wheat, Wind, X } from 'lucide-react';
+import { Activity, ArrowDownRight, ArrowLeft, ArrowRight, ArrowUpRight, Bell, Check, ChevronDown, ChevronLeft, ChevronRight, CircleAlert, Cloud, CloudSun, Droplets, Eye, EyeOff, FileImage, Globe2, HelpCircle, Info, Leaf, LogOut, MapPin, Menu, Moon, MoreHorizontal, Plus, ScanLine, Search, Settings, ShieldCheck, Sprout, Sun, Thermometer, TriangleAlert, Upload, Wheat, Wind, X } from 'lucide-react';
+import { getRememberedUsername, getSessionUser, isAuthenticated, login, logout, setRememberedUsername, signup } from './auth.js';
 
 function setTheme(theme) {
   document.documentElement.dataset.theme = theme;
@@ -75,8 +76,10 @@ function translatedAction(alert, language) {
 }
 
 function App() {
-  const [page, setPage] = useState('overview');
+  const [currentUser, setCurrentUser] = useState(getSessionUser);
+  const [page, setPage] = useState(() => isAuthenticated() ? 'overview' : 'login');
   const [menuOpen, setMenuOpen] = useState(false);
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [country, setCountry] = useState(() => {
     try { const saved = window.localStorage.getItem('fieldwise-country'); return countryLanguages[saved] ? saved : 'India'; }
     catch { return 'India'; }
@@ -142,13 +145,21 @@ function App() {
   const addField = (e) => { e.preventDefault(); const d = new FormData(e.currentTarget); const name = d.get('name')?.trim(); if (!name) return; setFields([...fields, { name, crop: `${d.get('crop') || 'Mixed crop'} · ${d.get('area') || '1.0'} ha`, health: 80, status: 'Healthy', color: 'green', ndvi: '.71', water: 'Good' }]); setShowFieldForm(false); notify('Field added to your farm.'); };
   const selected = nav.find(x => x.id === page)?.label || 'Overview';
   const activeAlerts = getActiveAlerts().filter(alert => !dismissedAlertIds.includes(alert.id));
+  const userInitials = currentUser?.fullName.split(/\s+/).filter(Boolean).slice(0, 2).map(part => part[0]).join('').toUpperCase() || '';
+  useEffect(() => {
+    if (currentUser && page === 'login') setPage('overview');
+    else if (!currentUser && page !== 'login') setPage('login');
+  }, [currentUser, page]);
+  const completeLogin = (user) => { setCurrentUser(user); setPage('overview'); };
+  const handleLogout = () => { logout(); setCurrentUser(null); setPage('login'); setProfileMenuOpen(false); };
+  if (!currentUser) return <AuthScreen language={language} country={country} onLanguageChange={setLanguage} theme={theme} onToggleTheme={toggleTheme} onLogin={completeLogin}/>;
   return <div className="app-shell">
     <aside className={`sidebar ${menuOpen ? 'open' : ''}`}>
       <div className="brand"><span className="brand-mark"><Sprout size={19}/></span><span>fieldwise<span className="brand-dot">.</span></span><button className="icon-btn close-menu" onClick={() => setMenuOpen(false)}><X size={18}/></button></div>
       <div className="farm-switch"><span className="farm-avatar">S</span><span className="farm-copy"><b>Sundar Farms</b><small>Farmer workspace</small></span><ChevronDown size={15}/></div>
       <div className="nav-label">WORKSPACE</div>
       <nav>{nav.map(item => <button key={item.id} onClick={() => { setPage(item.id); setMenuOpen(false); }} className={`nav-item ${page === item.id ? 'active' : ''}`}><item.icon size={18}/><span>{item.label}</span>{item.id === 'diagnostics' && <span className="nav-count">2</span>}</button>)}</nav>
-      <div className="sidebar-bottom"><div className="support-card"><div className="support-icon"><HelpCircle size={17}/></div><b>Need a hand?</b><p>Get guidance from a local agronomist.</p><button onClick={() => notify('Agronomist support will be available soon.')}>Contact support <ArrowRight size={14}/></button></div><button className="nav-item" onClick={() => notify('Settings are coming soon.')}><Settings size={18}/><span>Settings</span></button><div className="profile"><div className="profile-avatar">AS</div><div><b>Arjun Singh</b><small>Punjab, India</small></div><MoreHorizontal size={19}/></div></div>
+      <div className="sidebar-bottom"><div className="support-card"><div className="support-icon"><HelpCircle size={17}/></div><b>Need a hand?</b><p>Get guidance from a local agronomist.</p><button onClick={() => notify('Agronomist support will be available soon.')}>Contact support <ArrowRight size={14}/></button></div><button className="nav-item" onClick={() => notify('Settings are coming soon.')}><Settings size={18}/><span>Settings</span></button><div className="profile"><div className="profile-avatar">{userInitials}</div><div><b>{currentUser.fullName}</b><small>{currentUser.username === 'arjun' ? 'Punjab, India' : country}</small></div><button className="profile-menu-trigger" aria-label="Open account menu" aria-expanded={profileMenuOpen} onClick={() => setProfileMenuOpen(!profileMenuOpen)}><MoreHorizontal size={19}/></button>{profileMenuOpen && <div className="profile-menu"><button onClick={handleLogout}><LogOut size={15}/> Log out</button></div>}</div></div>
     </aside>
     {menuOpen && <div className="scrim" onClick={() => setMenuOpen(false)} />}
     <main className="main-area">{page === 'overview' && activeAlerts.length > 0 && <AlertRibbon alerts={activeAlerts} language={language} onDismiss={dismissAlert} onNavigate={navigateToAlert}/>}<header className="topbar"><button className="icon-btn menu-toggle" onClick={() => setMenuOpen(true)}><Menu size={20}/></button><div className="crumb">Workspace <ChevronRight size={14}/> <b>{selected}</b></div><div className="top-actions"><div className="weather-pill"><CloudSun size={17}/><span>28°</span><i>Partly cloudy</i></div><span className="top-divider"/><div className="notifications-wrap" ref={notificationsRef}><button className="icon-btn notification" onClick={() => setNotificationsOpen(!notificationsOpen)} aria-label="Open notifications" aria-haspopup="true" aria-expanded={notificationsOpen}><Bell size={18}/>{activeAlerts.length > 0 && <i/>}</button>{notificationsOpen && <div className="notification-dropdown" role="region" aria-label="All notifications"><div className="notification-heading"><b>Notifications</b><span>{alertData.length} updates</span></div>{[...alertData].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)).map(alert => <div className="notification-item" key={alert.id}><span className={`notification-severity ${alert.severity}`}/><div><b>{translatedAlert(alert, language)}</b><small>{alert.priority === 'high' ? 'High priority' : 'Farm update'} · {new Date(alert.timestamp).toLocaleDateString()}</small><button onClick={() => navigateToAlert(alert.actionHref)}>{translatedAction(alert, language)} <ArrowRight size={12}/></button></div></div>)}</div>}</div><select className="country-select" value={country} onChange={e => changeCountry(e.target.value)} aria-label="Choose region"><option>India</option><option>Brazil</option><option>China</option><option>Russia</option><option>South Africa</option></select><LanguageSelector country={country} language={language} onLanguageChange={setLanguage}/><button className="icon-btn theme-toggle" onClick={toggleTheme} title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'} aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}>{theme === 'dark' ? <Sun size={18}/> : <Moon size={18}/>}</button></div></header>
@@ -188,6 +199,101 @@ function LanguageSelector({ country, language, onLanguageChange }) {
         {group.languages.map(item => <button key={item} role="menuitemradio" aria-checked={language === item} className={`language-option ${language === item ? 'selected' : ''}`} onClick={() => { onLanguageChange(item); setOpen(false); }}><span>{item}</span>{language === item && <Check size={15}/>}</button>)}
       </div>)}
     </div>}
+  </div>;
+}
+
+function AuthScreen({ language, country, onLanguageChange, theme, onToggleTheme, onLogin }) {
+  const [mode, setMode] = useState('login');
+  const [username, setUsername] = useState(getRememberedUsername());
+  const [password, setPassword] = useState('');
+  const [fullName, setFullName] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [remember, setRemember] = useState(true);
+  const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [invalidFields, setInvalidFields] = useState([]);
+  const passwordRef = useRef(null);
+  const update = (setter) => event => { setter(event.target.value); setError(''); setInvalidFields([]); };
+
+  const handleLogin = event => {
+    event.preventDefault();
+    setError('');
+    const missing = [];
+    if (!username.trim()) missing.push('username');
+    if (!password) missing.push('password');
+    if (missing.length) {
+      setInvalidFields(missing);
+      setError(missing.includes('username') ? 'Please enter your username' : 'Please enter your password');
+      if (missing.includes('password')) passwordRef.current?.focus();
+      return;
+    }
+    const result = login(username, password);
+    if (!result.ok) {
+      if (result.error === 'invalid-credentials') {
+        setError('Incorrect username or password. Please retype and try again.');
+        setInvalidFields(['username', 'password']);
+        setPassword('');
+        window.setTimeout(() => passwordRef.current?.focus(), 0);
+      } else {
+        setError('Unable to save the demo session in this browser.');
+      }
+      return;
+    }
+    setRememberedUsername(username, remember);
+    setLoading(true);
+    window.setTimeout(() => onLogin(result.user), 600);
+  };
+
+  const handleSignup = event => {
+    event.preventDefault();
+    setError('');
+    const result = signup({ fullName, username, password, confirmPassword });
+    if (!result.ok) {
+      const empty = [];
+      if (!fullName.trim()) empty.push('fullName');
+      if (!username.trim()) empty.push('username');
+      if (!password) empty.push('password');
+      if (!confirmPassword) empty.push('confirmPassword');
+      setInvalidFields(empty.length ? empty : result.error === 'username-taken' ? ['username'] : result.error === 'password-mismatch' ? ['password', 'confirmPassword'] : result.error === 'password-short' ? ['password'] : []);
+      const messages = {
+        required: 'Please complete all fields.',
+        'password-short': 'Password must be at least 8 characters.',
+        'password-mismatch': 'Passwords do not match. Please retype.',
+        'username-taken': 'This username is already taken.',
+        storage: 'Unable to save the demo account in this browser.',
+      };
+      setError(messages[result.error] || 'Unable to create this account.');
+      return;
+    }
+    setRememberedUsername(username, remember);
+    setLoading(true);
+    window.setTimeout(() => onLogin(result.user), 600);
+  };
+
+  const passwordField = (id, label, value, setter, autocomplete, inputRef = null, fieldKey = id) => <label className="auth-label" htmlFor={id}>{label}<span className={`auth-password-wrap ${invalidFields.includes(fieldKey) ? 'invalid' : ''}`}><input id={id} ref={inputRef} type={showPassword ? 'text' : 'password'} autoComplete={autocomplete} value={value} onChange={update(setter)} aria-invalid={invalidFields.includes(fieldKey)} required/><button type="button" className="password-visibility" onClick={() => setShowPassword(!showPassword)} aria-label={showPassword ? 'Hide password' : 'Show password'}>{showPassword ? <EyeOff size={17}/> : <Eye size={17}/>}</button></span></label>;
+
+  return <div className="auth-shell">
+    <header className="auth-topbar"><a className="brand auth-brand" href="#login" onClick={event => event.preventDefault()}><span className="brand-mark"><Sprout size={19}/></span><span>fieldwise<span className="brand-dot">.</span></span></a><div className="auth-top-actions"><LanguageSelector country={country} language={language} onLanguageChange={onLanguageChange}/><button className="icon-btn theme-toggle" onClick={onToggleTheme} title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'} aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}>{theme === 'dark' ? <Sun size={18}/> : <Moon size={18}/>}</button></div></header>
+    <main className="auth-main"><section className="auth-card">
+      <div className="auth-heading"><span className="section-kicker">FARM INTELLIGENCE</span><h1>{mode === 'login' ? 'Welcome back' : 'Join Fieldwise'}</h1><p>{mode === 'login' ? 'Sign in to see what’s happening across your farm.' : 'Create your farmer account to get started.'}</p></div>
+      <div className="auth-tabs" role="tablist" aria-label="Account access"><button role="tab" aria-selected={mode === 'login'} className={mode === 'login' ? 'active' : ''} onClick={() => { setMode('login'); setError(''); setInvalidFields([]); }}>Log in</button><button role="tab" aria-selected={mode === 'signup'} className={mode === 'signup' ? 'active' : ''} onClick={() => { setMode('signup'); setError(''); setInvalidFields([]); }}>Sign up</button></div>
+      {error && <div className="auth-error" role="alert" aria-live="polite"><CircleAlert size={16}/><span>{error}</span></div>}
+      {mode === 'login' ? <form className="auth-form" onSubmit={handleLogin} noValidate>
+        <label className="auth-label" htmlFor="login-username">Username<input id="login-username" className={invalidFields.includes('username') ? 'invalid' : ''} type="text" autoComplete="username" value={username} onChange={update(setUsername)} aria-invalid={invalidFields.includes('username')} required/></label>
+        {passwordField('login-password', 'Password', password, setPassword, 'current-password', passwordRef, 'password')}
+        <label className="remember-row"><input type="checkbox" checked={remember} onChange={event => setRemember(event.target.checked)}/> <span>Remember me</span></label>
+        <button className="primary-btn auth-submit" type="submit" disabled={loading}>{loading ? <><span className="auth-spinner"/> Logging in…</> : 'Log in'}</button>
+      </form> : <form className="auth-form" onSubmit={handleSignup} noValidate>
+        <label className="auth-label" htmlFor="signup-fullname">Full name<input id="signup-fullname" className={invalidFields.includes('fullName') ? 'invalid' : ''} type="text" autoComplete="name" value={fullName} onChange={update(setFullName)} aria-invalid={invalidFields.includes('fullName')} required/></label>
+        <label className="auth-label" htmlFor="signup-username">Username<input id="signup-username" className={invalidFields.includes('username') ? 'invalid' : ''} type="text" autoComplete="username" value={username} onChange={update(setUsername)} aria-invalid={invalidFields.includes('username')} required/></label>
+        {passwordField('signup-password', 'Password', password, setPassword, 'new-password', null, 'password')}
+        {passwordField('signup-confirm-password', 'Confirm password', confirmPassword, setConfirmPassword, 'new-password', null, 'confirmPassword')}
+        <label className="remember-row"><input type="checkbox" checked={remember} onChange={event => setRemember(event.target.checked)}/> <span>Remember me</span></label>
+        <button className="primary-btn auth-submit" type="submit" disabled={loading}>{loading ? <><span className="auth-spinner"/> Creating account…</> : 'Create account'}</button>
+      </form>}
+      <div className="auth-note"><ShieldCheck size={14}/><span>Your farm information stays under your control.</span></div>
+    </section></main>
   </div>;
 }
 
