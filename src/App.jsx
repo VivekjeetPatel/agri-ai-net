@@ -1,5 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Activity, ArrowDownRight, ArrowRight, ArrowUpRight, Bell, Check, ChevronDown, ChevronLeft, ChevronRight, Cloud, CloudSun, Droplets, FileImage, Globe2, HelpCircle, Leaf, MapPin, Menu, MoreHorizontal, Plus, ScanLine, Search, Settings, ShieldCheck, Sprout, Sun, Thermometer, Upload, Wheat, Wind, X } from 'lucide-react';
+import { Activity, ArrowDownRight, ArrowLeft, ArrowRight, ArrowUpRight, Bell, Check, ChevronDown, ChevronLeft, ChevronRight, CircleAlert, Cloud, CloudSun, Droplets, FileImage, Globe2, HelpCircle, Info, Leaf, MapPin, Menu, Moon, MoreHorizontal, Plus, ScanLine, Search, Settings, ShieldCheck, Sprout, Sun, Thermometer, TriangleAlert, Upload, Wheat, Wind, X } from 'lucide-react';
+
+function setTheme(theme) {
+  document.documentElement.dataset.theme = theme;
+  try { window.localStorage.setItem('fieldwise-theme', theme); } catch { /* Storage may be unavailable. */ }
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme === 'dark' ? '#1f2d26' : '#f6f7f2');
+}
 
 const initialFields = [
   { name: 'North Field', crop: 'Wheat · 8.4 ha', health: 87, status: 'Healthy', color: 'green', ndvi: '.78', water: 'Good' },
@@ -22,6 +28,52 @@ const getLanguagesForCountry = (country) => {
   return { localHeading: `Local Languages – ${country}`, localLanguages, networkHeading: 'BRICS Network Languages', networkLanguages };
 };
 
+const alertData = [
+  { id: 'storm-khanna', severity: 'critical', priority: 'high', messageKey: 'heavyRain', message: 'Heavy rain expected Thursday in Khanna. Delay irrigation.', timestamp: '2026-09-29T08:15:00+05:30', actionLabel: 'View forecast', actionHref: '#climate' },
+  { id: 'river-bend-moisture', severity: 'warning', priority: 'high', messageKey: 'lowMoisture', message: 'Soil moisture is low in River Bend soybean. Check the field today.', timestamp: '2026-09-29T07:45:00+05:30', actionLabel: 'View field', actionHref: '#fields' },
+  { id: 'leaf-spot-river-bend', severity: 'warning', priority: 'high', messageKey: 'leafSpot', message: 'Possible leaf spot found in your latest photo. Review the diagnosis.', timestamp: '2026-09-29T06:30:00+05:30', actionLabel: 'Review diagnosis', actionHref: '#diagnostics' },
+  { id: 'weekly-report', severity: 'info', priority: 'normal', messageKey: 'weeklyReport', message: 'Your weekly farm health report is ready.', timestamp: '2026-09-28T17:00:00+05:30', actionLabel: 'View fields', actionHref: '#fields' },
+];
+
+const alertTranslations = {
+  Hindi: { heavyRain: 'खन्ना में गुरुवार को भारी बारिश की संभावना है। सिंचाई टालें।', lowMoisture: 'रिवर बेंड के सोयाबीन खेत में मिट्टी की नमी कम है। आज खेत जाँचें।', leafSpot: 'आपकी नवीनतम तस्वीर में पत्ती धब्बा रोग के संकेत मिले हैं। निदान देखें।', weeklyReport: 'आपकी साप्ताहिक खेत स्वास्थ्य रिपोर्ट तैयार है।', forecast: 'पूर्वानुमान देखें', field: 'खेत देखें', diagnosis: 'निदान देखें', report: 'खेत देखें' },
+  Punjabi: { heavyRain: 'ਖੰਨਾ ਵਿੱਚ ਵੀਰਵਾਰ ਨੂੰ ਭਾਰੀ ਮੀਂਹ ਦੀ ਸੰਭਾਵਨਾ ਹੈ। ਸਿੰਚਾਈ ਮੁਲਤਵੀ ਕਰੋ।', lowMoisture: 'ਰਿਵਰ ਬੈਂਡ ਦੇ ਸੋਇਆਬੀਨ ਖੇਤ ਵਿੱਚ ਮਿੱਟੀ ਦੀ ਨਮੀ ਘੱਟ ਹੈ। ਅੱਜ ਜਾਂਚੋ।', leafSpot: 'ਤੁਹਾਡੀ ਨਵੀਂ ਤਸਵੀਰ ਵਿੱਚ ਪੱਤਿਆਂ ਦੇ ਧੱਬੇ ਦੇ ਲੱਛਣ ਮਿਲੇ ਹਨ। ਜਾਂਚ ਵੇਖੋ।', weeklyReport: 'ਤੁਹਾਡੀ ਹਫ਼ਤਾਵਾਰੀ ਖੇਤ ਸਿਹਤ ਰਿਪੋਰਟ ਤਿਆਰ ਹੈ।', forecast: 'ਮੌਸਮ ਵੇਖੋ', field: 'ਖੇਤ ਵੇਖੋ', diagnosis: 'ਜਾਂਚ ਵੇਖੋ', report: 'ਖੇਤ ਵੇਖੋ' },
+  Marathi: { heavyRain: 'खन्ना येथे गुरुवारी मुसळधार पावसाची शक्यता आहे. सिंचन पुढे ढकला.', lowMoisture: 'रिव्हर बेंड सोयाबीनच्या शेतातील मातीचा ओलावा कमी आहे. आज तपासा.', leafSpot: 'तुमच्या अलीकडील फोटोमध्ये पानांवरील ठिपक्यांची शक्यता दिसते. निदान पाहा.', weeklyReport: 'तुमचा साप्ताहिक शेत आरोग्य अहवाल तयार आहे.', forecast: 'हवामान पाहा', field: 'शेत पाहा', diagnosis: 'निदान पाहा', report: 'शेत पाहा' },
+  Tamil: { heavyRain: 'கண்ணாவில் வியாழக்கிழமை கனமழை பெய்யலாம். பாசனத்தைத் தள்ளிவையுங்கள்.', lowMoisture: 'ரிவர் பெண்ட் சோயாபீன் வயலில் மண்ணின் ஈரப்பதம் குறைவாக உள்ளது. இன்று சரிபார்க்கவும்.', leafSpot: 'சமீபத்திய படத்தில் இலைப்புள்ளி அறிகுறிகள் இருக்கலாம். நோயறிதலைப் பார்க்கவும்.', weeklyReport: 'உங்கள் வாராந்திர பண்ணை நல அறிக்கை தயாராக உள்ளது.', forecast: 'வானிலைப் பாருங்கள்', field: 'வயலைப் பாருங்கள்', diagnosis: 'நோயறிதலைப் பாருங்கள்', report: 'வயல்களைப் பாருங்கள்' },
+  Telugu: { heavyRain: 'ఖన్నాలో గురువారం భారీ వర్షం కురిసే అవకాశం ఉంది. నీటిపారుదలను వాయిదా వేయండి.', lowMoisture: 'రివర్ బెండ్ సోయాబీన్ పొలంలో నేల తేమ తక్కువగా ఉంది. ఈరోజు తనిఖీ చేయండి.', leafSpot: 'మీ తాజా ఫోటోలో ఆకు మచ్చ వ్యాధి లక్షణాలు ఉండవచ్చు. నిర్ధారణను చూడండి.', weeklyReport: 'మీ వారపు పంట ఆరోగ్య నివేదిక సిద్ధంగా ఉంది.', forecast: 'వాతావరణాన్ని చూడండి', field: 'పొలాన్ని చూడండి', diagnosis: 'నిర్ధారణను చూడండి', report: 'పొలాలను చూడండి' },
+  Gujarati: { heavyRain: 'ખન્નામાં ગુરુવારે ભારે વરસાદની શક્યતા છે. સિંચાઈ મુલતવી રાખો.', lowMoisture: 'રિવર બેન્ડના સોયાબીન ખેતરમાં જમીનની ભેજ ઓછી છે. આજે તપાસો.', leafSpot: 'તમારા તાજેતરના ફોટામાં પાનના ટપકાંનાં લક્ષણો દેખાય છે. નિદાન જુઓ.', weeklyReport: 'તમારો સાપ્તાહિક ખેતર આરોગ્ય અહેવાલ તૈયાર છે.', forecast: 'આગાહી જુઓ', field: 'ખેતર જુઓ', diagnosis: 'નિદાન જુઓ', report: 'ખેતરો જુઓ' },
+  'Portuguese (Brazil)': { heavyRain: 'Há previsão de chuva forte na quinta-feira em Khanna. Adie a irrigação.', lowMoisture: 'A umidade do solo está baixa na soja de River Bend. Verifique a área hoje.', leafSpot: 'Sua foto mais recente pode indicar mancha foliar. Revise o diagnóstico.', weeklyReport: 'Seu relatório semanal de saúde da fazenda está pronto.', forecast: 'Ver previsão', field: 'Ver talhão', diagnosis: 'Revisar diagnóstico', report: 'Ver talhões' },
+  Russian: { heavyRain: 'В четверг в Кханне ожидаются сильные дожди. Отложите полив.', lowMoisture: 'Влажность почвы на соевом поле Ривер-Бенд низкая. Проверьте поле сегодня.', leafSpot: 'На последнем фото возможны признаки пятнистости листьев. Проверьте диагноз.', weeklyReport: 'Готов еженедельный отчёт о состоянии вашей фермы.', forecast: 'Прогноз погоды', field: 'Открыть поле', diagnosis: 'Проверить диагноз', report: 'Открыть поля' },
+  'Mandarin (China)': { heavyRain: '卡纳周四预计有强降雨。请推迟灌溉。', lowMoisture: '河湾大豆田土壤水分偏低。请于今天检查田地。', leafSpot: '最新照片可能显示叶斑病迹象。请查看诊断结果。', weeklyReport: '您的每周农场健康报告已准备就绪。', forecast: '查看天气', field: '查看田地', diagnosis: '查看诊断', report: '查看田地' },
+  'English (South Africa)': { heavyRain: 'Heavy rain expected Thursday in Khanna. Delay irrigation.', lowMoisture: 'Soil moisture is low in River Bend soybean. Check the field today.', leafSpot: 'Possible leaf spot found in your latest photo. Review the diagnosis.', weeklyReport: 'Your weekly farm health report is ready.', forecast: 'View forecast', field: 'View field', diagnosis: 'Review diagnosis', report: 'View fields' },
+  'Zulu (South Africa)': { heavyRain: 'Kulindeleke imvula enkulu eKhanna ngoLwesine. Hlehlisa ukunisela.', lowMoisture: 'Umswakama womhlabathi uphansi ensimini yesoya eRiver Bend. Hlola insimu namuhla.', leafSpot: 'Isithombe sakho sakamuva singase sibonise amabala emaqabungeni. Buyekeza ukuhlolwa.', weeklyReport: 'Umbiko wakho wamasonto onke wezempilo yepulazi usulungile.', forecast: 'Buka isibikezelo', field: 'Buka insimu', diagnosis: 'Buyekeza ukuhlolwa', report: 'Buka amasimu' },
+};
+
+const alertLanguageFallbacks = {
+  Tatar: 'Russian', Bashkir: 'Russian', Chechen: 'Russian', Chuvash: 'Russian', Avar: 'Russian', 'Yakut (Sakha)': 'Russian',
+  Cantonese: 'Mandarin (China)', 'Wu (Shanghainese)': 'Mandarin (China)', 'Min Nan': 'Mandarin (China)', Hakka: 'Mandarin (China)', Tibetan: 'Mandarin (China)', Uyghur: 'Mandarin (China)', Mongolian: 'Mandarin (China)',
+  Xhosa: 'English (South Africa)', Afrikaans: 'English (South Africa)', Sepedi: 'English (South Africa)', Setswana: 'English (South Africa)', Sesotho: 'English (South Africa)', Xitsonga: 'English (South Africa)', siSwati: 'English (South Africa)', Tshivenda: 'English (South Africa)', isiNdebele: 'English (South Africa)',
+};
+
+function getActiveAlerts() {
+  const order = { critical: 0, warning: 1, info: 2 };
+  return alertData.filter(alert => alert.priority === 'high').sort((a, b) => order[a.severity] - order[b.severity] || new Date(b.timestamp) - new Date(a.timestamp));
+}
+
+function readDismissedAlertIds() {
+  const read = (storage, key) => { try { return JSON.parse(storage.getItem(key) || '[]'); } catch { return []; } };
+  return [...new Set([
+    ...read(window.localStorage, 'fieldwise-dismissed-alerts'),
+    ...read(window.sessionStorage, 'fieldwise-dismissed-critical-alerts'),
+  ])];
+}
+
+function translatedAlert(alert, language) { return alertTranslations[language]?.[alert.messageKey] || alertTranslations[alertLanguageFallbacks[language]]?.[alert.messageKey] || alert.message; }
+function translatedAction(alert, language) {
+  const key = alert.actionHref === '#climate' ? 'forecast' : alert.actionHref === '#diagnostics' ? 'diagnosis' : alert.id === 'weekly-report' ? 'report' : 'field';
+  return alertTranslations[language]?.[key] || alertTranslations[alertLanguageFallbacks[language]]?.[key] || alert.actionLabel;
+}
+
 function App() {
   const [page, setPage] = useState('overview');
   const [menuOpen, setMenuOpen] = useState(false);
@@ -29,6 +81,9 @@ function App() {
     try { const saved = window.localStorage.getItem('fieldwise-country'); return countryLanguages[saved] ? saved : 'India'; }
     catch { return 'India'; }
   });
+  const [theme, setThemeState] = useState(() => document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light');
+  const [dismissedAlertIds, setDismissedAlertIds] = useState(readDismissedAlertIds);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [language, setLanguage] = useState(() => {
     try {
       const savedCountry = window.localStorage.getItem('fieldwise-country');
@@ -45,17 +100,38 @@ function App() {
   const [showFieldForm, setShowFieldForm] = useState(false);
   const [toast, setToast] = useState('');
   const inputRef = useRef(null);
+  const notificationsRef = useRef(null);
   useEffect(() => {
     try {
       window.localStorage.setItem('fieldwise-country', country);
       window.localStorage.setItem('fieldwise-language', language);
     } catch { /* Storage may be unavailable in private browsing contexts. */ }
   }, [country, language]);
+  useEffect(() => {
+    const closeOnOutsideClick = (event) => { if (!notificationsRef.current?.contains(event.target)) setNotificationsOpen(false); };
+    document.addEventListener('mousedown', closeOnOutsideClick);
+    return () => document.removeEventListener('mousedown', closeOnOutsideClick);
+  }, []);
   const changeCountry = (nextCountry) => {
     const { localLanguages } = getLanguagesForCountry(nextCountry);
     if (!localLanguages.includes(language)) setLanguage(localLanguages[0]);
     setCountry(nextCountry);
   };
+  const toggleTheme = () => {
+    const nextTheme = theme === 'dark' ? 'light' : 'dark';
+    setTheme(nextTheme);
+    setThemeState(nextTheme);
+  };
+  const dismissAlert = (alert) => {
+    setDismissedAlertIds(ids => [...new Set([...ids, alert.id])]);
+    try {
+      const storage = alert.severity === 'critical' ? window.sessionStorage : window.localStorage;
+      const key = alert.severity === 'critical' ? 'fieldwise-dismissed-critical-alerts' : 'fieldwise-dismissed-alerts';
+      const ids = JSON.parse(storage.getItem(key) || '[]');
+      storage.setItem(key, JSON.stringify([...new Set([...ids, alert.id])]));
+    } catch { /* Keep the alert dismissed for this render when storage is unavailable. */ }
+  };
+  const navigateToAlert = (href) => { setPage(href.replace('#', '')); setNotificationsOpen(false); };
   const notify = (msg) => { setToast(msg); setTimeout(() => setToast(''), 2600); };
   const analyze = (file) => {
     if (!file) return;
@@ -65,6 +141,7 @@ function App() {
   };
   const addField = (e) => { e.preventDefault(); const d = new FormData(e.currentTarget); const name = d.get('name')?.trim(); if (!name) return; setFields([...fields, { name, crop: `${d.get('crop') || 'Mixed crop'} · ${d.get('area') || '1.0'} ha`, health: 80, status: 'Healthy', color: 'green', ndvi: '.71', water: 'Good' }]); setShowFieldForm(false); notify('Field added to your farm.'); };
   const selected = nav.find(x => x.id === page)?.label || 'Overview';
+  const activeAlerts = getActiveAlerts().filter(alert => !dismissedAlertIds.includes(alert.id));
   return <div className="app-shell">
     <aside className={`sidebar ${menuOpen ? 'open' : ''}`}>
       <div className="brand"><span className="brand-mark"><Sprout size={19}/></span><span>fieldwise<span className="brand-dot">.</span></span><button className="icon-btn close-menu" onClick={() => setMenuOpen(false)}><X size={18}/></button></div>
@@ -74,7 +151,7 @@ function App() {
       <div className="sidebar-bottom"><div className="support-card"><div className="support-icon"><HelpCircle size={17}/></div><b>Need a hand?</b><p>Get guidance from a local agronomist.</p><button onClick={() => notify('Agronomist support will be available soon.')}>Contact support <ArrowRight size={14}/></button></div><button className="nav-item" onClick={() => notify('Settings are coming soon.')}><Settings size={18}/><span>Settings</span></button><div className="profile"><div className="profile-avatar">AS</div><div><b>Arjun Singh</b><small>Punjab, India</small></div><MoreHorizontal size={19}/></div></div>
     </aside>
     {menuOpen && <div className="scrim" onClick={() => setMenuOpen(false)} />}
-    <main className="main-area"><header className="topbar"><button className="icon-btn menu-toggle" onClick={() => setMenuOpen(true)}><Menu size={20}/></button><div className="crumb">Workspace <ChevronRight size={14}/> <b>{selected}</b></div><div className="top-actions"><div className="weather-pill"><CloudSun size={17}/><span>28°</span><i>Partly cloudy</i></div><span className="top-divider"/><button className="icon-btn notification" onClick={() => notify('You’re all caught up.')}><Bell size={18}/><i/></button><select className="country-select" value={country} onChange={e => changeCountry(e.target.value)} aria-label="Choose region"><option>India</option><option>Brazil</option><option>China</option><option>Russia</option><option>South Africa</option></select><LanguageSelector country={country} language={language} onLanguageChange={setLanguage}/></div></header>
+    <main className="main-area">{page === 'overview' && activeAlerts.length > 0 && <AlertRibbon alerts={activeAlerts} language={language} onDismiss={dismissAlert} onNavigate={navigateToAlert}/>}<header className="topbar"><button className="icon-btn menu-toggle" onClick={() => setMenuOpen(true)}><Menu size={20}/></button><div className="crumb">Workspace <ChevronRight size={14}/> <b>{selected}</b></div><div className="top-actions"><div className="weather-pill"><CloudSun size={17}/><span>28°</span><i>Partly cloudy</i></div><span className="top-divider"/><div className="notifications-wrap" ref={notificationsRef}><button className="icon-btn notification" onClick={() => setNotificationsOpen(!notificationsOpen)} aria-label="Open notifications" aria-haspopup="true" aria-expanded={notificationsOpen}><Bell size={18}/>{activeAlerts.length > 0 && <i/>}</button>{notificationsOpen && <div className="notification-dropdown" role="region" aria-label="All notifications"><div className="notification-heading"><b>Notifications</b><span>{alertData.length} updates</span></div>{[...alertData].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)).map(alert => <div className="notification-item" key={alert.id}><span className={`notification-severity ${alert.severity}`}/><div><b>{translatedAlert(alert, language)}</b><small>{alert.priority === 'high' ? 'High priority' : 'Farm update'} · {new Date(alert.timestamp).toLocaleDateString()}</small><button onClick={() => navigateToAlert(alert.actionHref)}>{translatedAction(alert, language)} <ArrowRight size={12}/></button></div></div>)}</div>}</div><select className="country-select" value={country} onChange={e => changeCountry(e.target.value)} aria-label="Choose region"><option>India</option><option>Brazil</option><option>China</option><option>Russia</option><option>South Africa</option></select><LanguageSelector country={country} language={language} onLanguageChange={setLanguage}/><button className="icon-btn theme-toggle" onClick={toggleTheme} title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'} aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}>{theme === 'dark' ? <Sun size={18}/> : <Moon size={18}/>}</button></div></header>
       <div className="content"><div className="page-heading"><div><div className="eyebrow"><Sun size={14}/> MONDAY, 29 SEPTEMBER 2026 <span className="eyebrow-dot">·</span> KHANNA, PUNJAB</div><h1>{page === 'overview' ? 'Good morning, Arjun' : selected}<span className="wave">{page === 'overview' ? ' ☀' : ''}</span></h1><p>{page === 'overview' ? 'Here’s what’s happening across your farm today.' : page === 'diagnostics' ? 'Check crop health with a quick photo from your field.' : page === 'network' ? 'A shared learning network built on locally governed farm data.' : page === 'climate' ? 'Plan ahead with local weather and crop-specific water guidance.' : 'A clear view of crop health across your fields.'}</p></div><button className="date-button"><ChevronLeft size={16}/> This week <ChevronDown size={14}/></button></div>
       {page === 'overview' && <Overview fields={fields} onAdd={() => setShowFieldForm(true)} onPage={setPage} />}
       {page === 'diagnostics' && <Diagnostics image={image} diagnosis={diagnosis} busy={busy} inputRef={inputRef} onFile={analyze} />}
@@ -114,11 +191,35 @@ function LanguageSelector({ country, language, onLanguageChange }) {
   </div>;
 }
 
+function AlertRibbon({ alerts, language, onDismiss, onNavigate }) {
+  const [index, setIndex] = useState(0);
+  const [leaving, setLeaving] = useState(false);
+  const exitTimer = useRef(null);
+  useEffect(() => () => window.clearTimeout(exitTimer.current), []);
+  if (!alerts.length) return null;
+  const currentIndex = index % alerts.length;
+  const alert = alerts[currentIndex];
+  const Icon = alert.severity === 'critical' ? TriangleAlert : alert.severity === 'warning' ? CircleAlert : Info;
+  const dismiss = () => {
+    if (leaving) return;
+    setLeaving(true);
+    exitTimer.current = window.setTimeout(() => { onDismiss(alert); setLeaving(false); }, 200);
+  };
+  const actionLabel = translatedAction(alert, language);
+  return <div className={`alert-ribbon ${alert.severity} ${leaving ? 'leaving' : ''}`} role={alert.severity === 'critical' ? 'alert' : 'status'} aria-live={alert.severity === 'critical' ? 'assertive' : 'polite'} aria-atomic="true">
+    <Icon className="alert-ribbon-icon" size={18} aria-hidden="true"/>
+    <span className="alert-ribbon-message">{translatedAlert(alert, language)}</span>
+    <a className="alert-ribbon-action" href={alert.actionHref} onClick={event => { event.preventDefault(); onNavigate(alert.actionHref); }}>{actionLabel} <ArrowRight size={13}/></a>
+    {alerts.length > 1 && <div className="alert-ribbon-pager"><span>{currentIndex + 1} of {alerts.length}</span><button onClick={() => setIndex((currentIndex - 1 + alerts.length) % alerts.length)} aria-label="Previous alert"><ArrowLeft size={14}/></button><button onClick={() => setIndex((currentIndex + 1) % alerts.length)} aria-label="Next alert"><ArrowRight size={14}/></button></div>}
+    <button className="alert-ribbon-close" onClick={dismiss} aria-label="Dismiss alert" title="Dismiss alert"><X size={16}/></button>
+  </div>;
+}
+
 function Overview({ fields, onAdd, onPage }) { return <>
   <section className="stats-grid"><Stat label="Active fields" value={String(fields.length).padStart(2,'0')} unit="fields" delta="Across 15.7 hectares" icon={MapPin} tone="mint"/><Stat label="Farm health" value="78" unit="/ 100" delta={<><ArrowUpRight size={14}/> 4 pts this month</>} icon={Leaf} tone="lime"/><Stat label="Rain expected" value="12" unit="mm" delta="Thursday · next 7 days" icon={Cloud} tone="blue"/><Stat label="Water saved" value="18" unit="%" delta="Vs. your usual schedule" icon={Droplets} tone="peach"/></section>
   <div className="main-grid"><section className="panel field-panel"><div className="panel-heading"><div><span className="section-kicker">FIELD MONITOR</span><h2>Your fields <span className="count-badge">{fields.length}</span></h2></div><button className="text-action" onClick={() => onPage('fields')}>View all <ArrowRight size={15}/></button></div><div className="field-list">{fields.slice(0,3).map((f,i)=><div className="field-row" key={f.name}><div className={`field-thumb thumb-${i%3}`}><span>{i===0?'↗':i===1?'◌':'⌁'}</span><small>{f.ndvi} NDVI</small></div><div className="field-info"><b>{f.name}</b><span>{f.crop}</span><div className="field-meta"><span className={`status-dot ${f.color}`}/><span className={f.color}>{f.status}</span><i>·</i><span>Soil moisture {f.water.toLowerCase()}</span></div></div><div className="health-wrap"><div className="health-number">{f.health}<small>%</small></div><div className="health-track"><span style={{width:`${f.health}%`}} className={f.health<70?'amber':''}/></div></div><button className="row-arrow" onClick={() => onPage('fields')}><ArrowRight size={17}/></button></div>)}</div><button className="add-field" onClick={onAdd}><Plus size={16}/> Add a field</button></section>
   <section className="panel care-panel"><div className="panel-heading"><div><span className="section-kicker">TODAY’S PRIORITIES</span><h2>Field notes <span className="note-count">2</span></h2></div><button className="more-btn"><MoreHorizontal size={19}/></button></div><div className="care-note urgent"><span className="note-icon amber-icon"><Leaf size={17}/></span><div><div className="note-label">CROP HEALTH <span>· 2 HOURS AGO</span></div><b>Check River Bend soybean</b><p>Possible leaf spot detected in your latest field photo.</p><button onClick={() => onPage('diagnostics')}>Review diagnosis <ArrowRight size={14}/></button></div></div><div className="care-note"><span className="note-icon blue-icon"><Droplets size={17}/></span><div><div className="note-label">IRRIGATION <span>· TODAY</span></div><b>Water North Field tomorrow</b><p>Soil moisture is trending low ahead of warmer weather.</p><button onClick={() => onPage('climate')}>See water plan <ArrowRight size={14}/></button></div></div></section></div>
-  <div className="lower-grid"><section className="panel trend-panel"><div className="panel-heading"><div><span className="section-kicker">SATELLITE OBSERVATION</span><h2>Vegetation health <span className="ndvi-tag">NDVI</span></h2></div><button className="select-chip">All fields <ChevronDown size={14}/></button></div><div className="chart-caption"><span><i className="legend-dot"/>This season</span><span>Field average <b>0.72</b> <em><ArrowUpRight size={13}/> 6.4%</em></span></div><div className="chart"><div className="ylabels"><span>.9</span><span>.7</span><span>.5</span><span>.3</span></div><div className="chart-main"><div className="gridline g1"/><div className="gridline g2"/><div className="gridline g3"/><div className="gridline g4"/><svg viewBox="0 0 640 150" preserveAspectRatio="none" role="img" aria-label="Vegetation health rose steadily over the past five weeks"><defs><linearGradient id="chartFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#72ae61" stopOpacity=".19"/><stop offset="100%" stopColor="#72ae61" stopOpacity="0"/></linearGradient></defs><path d="M0,100 C34,95 55,102 80,86 S130,80 160,83 S207,65 240,72 S295,79 320,56 S377,65 400,49 S458,58 480,37 S538,47 560,34 S608,35 640,20 L640,150 L0,150Z" fill="url(#chartFill)"/><path d="M0,100 C34,95 55,102 80,86 S130,80 160,83 S207,65 240,72 S295,79 320,56 S377,65 400,49 S458,58 480,37 S538,47 560,34 S608,35 640,20" fill="none" stroke="#6aa15b" strokeWidth="3" vectorEffect="non-scaling-stroke" strokeLinecap="round"/><circle cx="640" cy="20" r="5" fill="#fff" stroke="#6aa15b" strokeWidth="3" vectorEffect="non-scaling-stroke"/></svg><div className="xlabels"><span>Sep 1</span><span>Sep 8</span><span>Sep 15</span><span>Sep 22</span><span>Sep 29</span></div></div></div><div className="chart-foot"><span><i className="satellite-dot"/>Last satellite pass: 2 days ago</span><span>Sample data</span></div></section>
+  <div className="lower-grid"><section className="panel trend-panel"><div className="panel-heading"><div><span className="section-kicker">SATELLITE OBSERVATION</span><h2>Vegetation health <span className="ndvi-tag">NDVI</span></h2></div><button className="select-chip">All fields <ChevronDown size={14}/></button></div><div className="chart-caption"><span><i className="legend-dot"/>This season</span><span>Field average <b>0.72</b> <em><ArrowUpRight size={13}/> 6.4%</em></span></div><div className="chart"><div className="ylabels"><span>.9</span><span>.7</span><span>.5</span><span>.3</span></div><div className="chart-main"><div className="gridline g1"/><div className="gridline g2"/><div className="gridline g3"/><div className="gridline g4"/><svg viewBox="0 0 640 150" preserveAspectRatio="none" role="img" aria-label="Vegetation health rose steadily over the past five weeks"><defs><linearGradient id="chartFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="var(--palette-72ae61)" stopOpacity=".19"/><stop offset="100%" stopColor="var(--palette-72ae61)" stopOpacity="0"/></linearGradient></defs><path d="M0,100 C34,95 55,102 80,86 S130,80 160,83 S207,65 240,72 S295,79 320,56 S377,65 400,49 S458,58 480,37 S538,47 560,34 S608,35 640,20 L640,150 L0,150Z" fill="url(#chartFill)"/><path d="M0,100 C34,95 55,102 80,86 S130,80 160,83 S207,65 240,72 S295,79 320,56 S377,65 400,49 S458,58 480,37 S538,47 560,34 S608,35 640,20" fill="none" stroke="var(--palette-6aa15b)" strokeWidth="3" vectorEffect="non-scaling-stroke" strokeLinecap="round"/><circle cx="640" cy="20" r="5" fill="var(--surface)" stroke="var(--palette-6aa15b)" strokeWidth="3" vectorEffect="non-scaling-stroke"/></svg><div className="xlabels"><span>Sep 1</span><span>Sep 8</span><span>Sep 15</span><span>Sep 22</span><span>Sep 29</span></div></div></div><div className="chart-foot"><span><i className="satellite-dot"/>Last satellite pass: 2 days ago</span><span>Sample data</span></div></section>
   <section className="panel weather-panel"><div className="panel-heading"><div><span className="section-kicker">KHANNA, PUNJAB</span><h2>Next 5 days</h2></div><button className="more-btn"><MoreHorizontal size={19}/></button></div><div className="weather-summary"><div><b>28°</b><span>Partly cloudy</span></div><CloudSun size={42} strokeWidth={1.4}/></div><div className="weather-stats"><span><Droplets size={15}/> 62% humidity</span><span><Wind size={15}/> 11 km/h wind</span></div><div className="forecast">{[['TUE','☀','29°','19°'],['WED','🌤','27°','18°'],['THU','🌧','24°','17°'],['FRI','🌦','25°','18°'],['SAT','☀','28°','19°']].map(d=><div className="forecast-day" key={d[0]}><small>{d[0]}</small><span>{d[1]}</span><b>{d[2]}</b><i>{d[3]}</i></div>)}</div><div className="weather-advice"><span><Droplets size={15}/></span><p><b>Rain likely Thursday</b> — consider holding irrigation until after the shower.</p></div></section></div>
   <div className="privacy-strip"><ShieldCheck size={17}/><span><b>Built for your land, wherever it is.</b> Field insights adapt to your region and local growing practices.</span><button onClick={() => onPage('network')}>About the network <ArrowRight size={14}/></button></div>
   </>; }
