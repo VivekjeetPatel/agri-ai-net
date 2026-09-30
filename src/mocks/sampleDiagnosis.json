@@ -1,0 +1,14 @@
+{
+  "crop": "Tomato",
+  "disease": { "name": "Early blight", "scientificName": "Alternaria solani", "commonName": "Early blight" },
+  "confidence": 0.87,
+  "description": "Early blight is a fungal disease that can spread in warm, damp conditions. Remove badly affected leaves and avoid wetting foliage when watering.",
+  "treatment": ["Remove and dispose of badly affected leaves.", "Ask a local agronomist about an approved treatment for your crop and region."],
+  "prevention": ["Rotate crops and clear plant debris.", "Water near the soil and allow leaves to dry."],
+  "spray": [],
+  "alternatives": [{ "name": "Septoria leaf spot", "probability": 0.08 }, { "name": "Bacterial leaf spot", "probability": 0.03 }],
+  "healthy": false,
+  "severity": null,
+  "rawFields": [],
+  "demo": true
+}
