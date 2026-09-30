@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { selectSpeechVoice, speechTemplates, splitSpeechText } from './speechService.js';
+import { useTranslation } from 'react-i18next';
+import { selectSpeechVoice, splitSpeechText } from './speechService.js';
 
 export function useReadAloud({ queue, language, onUnsupported }) {
+  const { t } = useTranslation();
   const [state, setState] = useState('idle');
   const [currentItem, setCurrentItem] = useState(null);
   const [notice, setNotice] = useState('');
@@ -56,8 +58,7 @@ export function useReadAloud({ queue, language, onUnsupported }) {
     else {
       const fallbackVoice = voices.find(voice => voice.lang?.toLowerCase().startsWith('hi')) || voices.find(voice => voice.lang?.toLowerCase().startsWith('en')) || voices[0];
       if (fallbackVoice) { utterance.voice = fallbackVoice; utterance.lang = fallbackVoice.lang || 'en-IN'; }
-      const templates = speechTemplates[languageRef.current] || speechTemplates.English;
-      const message = templates.unavailable || speechTemplates.English.unavailable;
+      const message = t('speech.unavailable');
       setNotice(message);
       onUnsupported?.(message);
     }
@@ -71,15 +72,15 @@ export function useReadAloud({ queue, language, onUnsupported }) {
     };
     utterance.onerror = event => {
       if (event.error !== 'canceled' && event.error !== 'interrupted' && activeRef.current) {
-        setNotice('Voice playback could not continue. Please try again.');
+        setNotice(t('speech.playbackError'));
         finish();
       }
     };
     window.speechSynthesis.speak(utterance);
-  }, [finish, onUnsupported, speed, voices]);
+  }, [finish, onUnsupported, speed, voices, t]);
 
   const start = useCallback((items = queueRef.current, startIndex = 0) => {
-    if (!window.speechSynthesis) { const message = 'Voice is not supported in this browser.'; setNotice(message); onUnsupported?.(message); return; }
+    if (!window.speechSynthesis) { const message = t('speech.unsupported'); setNotice(message); onUnsupported?.(message); return; }
     window.speechSynthesis.cancel();
     clearTimeout(timerRef.current);
     queueRef.current = items;
@@ -90,7 +91,7 @@ export function useReadAloud({ queue, language, onUnsupported }) {
     stateRef.current = 'playing';
     setState('playing');
     playCurrent();
-  }, [onUnsupported, playCurrent]);
+  }, [onUnsupported, playCurrent, t]);
 
   const stop = useCallback(() => {
     activeRef.current = false;

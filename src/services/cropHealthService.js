@@ -3,8 +3,8 @@ const supportedLanguages = new Set(['en', 'de', 'cs', 'es', 'fr', 'it', 'nl', 'p
 const sessionCache = new Map();
 
 export function getCropHealthLanguage(language) {
-  const codes = { Hindi: 'hi', 'Portuguese (Brazil)': 'pt', 'Mandarin (China)': 'zh' };
-  const code = codes[language] || 'en';
+  const names = { Hindi: 'hi', 'Portuguese (Brazil)': 'pt', 'Mandarin (China)': 'zh' };
+  const code = names[language] || String(language || 'en').split('-')[0].toLowerCase();
   return supportedLanguages.has(code) ? code : 'en';
 }
 
@@ -76,12 +76,16 @@ export function normalizeCropHealthResponse(payload) {
 }
 
 function apiError(status) {
-  if (status === 400) return new Error('The image could not be processed. Check that it is a clear JPG or PNG, then retry.');
-  if (status === 401 || status === 403) return new Error('Crop health access was denied. Check the server-side API key configuration.');
-  if (status === 404) return new Error('Service endpoint not found. Check VITE_CROP_HEALTH_BASE_URL and restart the Vite dev server.');
-  if (status === 402 || status === 429) return new Error('The crop.health service has no available credits or is rate limited. Try again later or use the demo result.');
-  if (status >= 500) return new Error('The crop.health service is having a problem. Please retry shortly or use the demo result.');
-  return new Error(`The crop.health service returned an unexpected error (${status}). Please retry or use the demo result.`);
+  const code = status === 400 ? 'diagnostics.errors.badImage'
+    : status === 401 || status === 403 ? 'diagnostics.errors.unauthorized'
+      : status === 404 ? 'diagnostics.errors.notFound'
+        : status === 402 || status === 429 ? 'diagnostics.errors.rateLimit'
+          : status >= 500 ? 'diagnostics.errors.service'
+            : 'diagnostics.errors.unexpected';
+  const error = new Error(code);
+  error.code = code;
+  error.status = status;
+  return error;
 }
 
 export async function analyzeImage(file, { language = 'English' } = {}) {
@@ -110,7 +114,7 @@ export async function analyzeImage(file, { language = 'English' } = {}) {
     if (import.meta.env.DEV) console.debug('[crop.health] response', { status: response.status, body: payload });
     if (import.meta.env.DEV && response.status === 401) console.warn('[crop.health] 401 Unauthorized: verify CROP_HEALTH_API_KEY in .env.local and restart Vite. The browser does not send this key.');
     if (!response.ok) throw apiError(response.status);
-    if (!payload || typeof payload !== 'object') throw new Error('The crop.health service returned an unreadable response. Please retry or use the demo result.');
+    if (!payload || typeof payload !== 'object') { const error = new Error('diagnostics.errors.unreadable'); error.code = 'diagnostics.errors.unreadable'; throw error; }
     const normalized = normalizeCropHealthResponse(payload);
     normalized.apiLanguage = apiLanguage;
     const returnedLanguage = normalized.disease?.detailsLanguage;
@@ -124,8 +128,8 @@ export async function analyzeImage(file, { language = 'English' } = {}) {
     } catch { normalized.analysesUsed = null; }
     return normalized;
   } catch (error) {
-    if (error.name === 'AbortError') throw new Error('The photo check took too long. Please retry with a smaller or clearer image.');
-    if (error instanceof TypeError) throw new Error('Could not reach crop.health. Check your connection and try again.');
+    if (error.name === 'AbortError') { const translatedError = new Error('diagnostics.errors.timeout'); translatedError.code = 'diagnostics.errors.timeout'; throw translatedError; }
+    if (error instanceof TypeError) { const translatedError = new Error('diagnostics.errors.connection'); translatedError.code = 'diagnostics.errors.connection'; throw translatedError; }
     throw error;
   } finally {
     window.clearTimeout(timeout);

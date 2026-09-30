@@ -1,12 +1,16 @@
 import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Activity, ArrowDownRight, ArrowLeft, ArrowRight, ArrowUpRight, Bell, Check, ChevronDown, ChevronLeft, ChevronRight, CircleAlert, Cloud, CloudSun, Droplets, Eye, EyeOff, FileImage, Globe2, HelpCircle, Info, Leaf, LogOut, MapPin, Menu, Moon, MoreHorizontal, Pause, Play, Plus, ScanLine, Search, Settings, ShieldCheck, SkipBack, SkipForward, Sprout, Sun, Thermometer, TriangleAlert, Upload, Users, Volume2, VolumeX, Wheat, Wind, X } from 'lucide-react';
 import { getRememberedUsername, getSessionUser, isAuthenticated, login, logout, setRememberedUsername, signup } from './auth.js';
-import { buildReadingQueue, getSpeechStateLabel, speechLanguageCodes, speechTemplates } from './speechService.js';
+import { buildReadingQueue, speechLanguageCodes } from './speechService.js';
+import i18n from './i18n/i18n.js';
 import { useReadAloud } from './useReadAloud.js';
 import CommunityPage from './community/CommunityPage.jsx';
 import { communityData } from './community/communityService.js';
 import { useDiagnosis } from './hooks/useDiagnosis.js';
 import { DiagnosisResult, PhotoUploader } from './components/DiagnosisComponents.jsx';
+import { getLanguageGlyph, SHOW_LANG_CODE } from './i18n/languageGlyphs.js';
+import { countryLanguages, getLanguagesForCountry, languageCatalog, labelToLanguageCode, languageCodeToLabel } from './i18n/languageCatalog.js';
 
 function setTheme(theme) {
   document.documentElement.dataset.theme = theme;
@@ -15,25 +19,11 @@ function setTheme(theme) {
 }
 
 const initialFields = [
-  { name: 'North Field', crops: ['Wheat'], area: 8.4, health: 87, status: 'Healthy', color: 'green', ndvi: '.78', water: 'Good' },
-  { name: 'River Bend', crops: ['Soybean'], area: 5.2, health: 62, status: 'Needs attention', color: 'amber', ndvi: '.54', water: 'Moderate' },
-  { name: 'Orchard East', crops: ['Tomato'], area: 2.1, health: 91, status: 'Healthy', color: 'green', ndvi: '.84', water: 'Good' },
+  { name: 'North Field', crops: ['Wheat'], area: 8.4, health: 87, statusKey: 'fields.statuses.healthy', color: 'green', ndvi: '.78', water: 'Good' },
+  { name: 'River Bend', crops: ['Soybean'], area: 5.2, health: 62, statusKey: 'fields.statuses.attention', color: 'amber', ndvi: '.54', water: 'Moderate' },
+  { name: 'Orchard East', crops: ['Tomato'], area: 2.1, health: 91, statusKey: 'fields.statuses.healthy', color: 'green', ndvi: '.84', water: 'Good' },
 ];
 const cropOptions = ['Wheat', 'Rice', 'Maize', 'Cotton', 'Sugarcane', 'Mustard', 'Soybean', 'Tomato', 'Potato', 'Onion', 'Chickpea', 'Sunflower', 'Groundnut', 'Millet', 'Barley', 'Lentil', 'Pigeon pea', 'Sorghum', 'Tea', 'Coffee', 'Apple', 'Mango', 'Banana', 'Chili pepper', 'Cabbage', 'Cauliflower'];
-const cropTranslations = {
-  Hindi: { Wheat: 'गेहूँ', Rice: 'चावल', Maize: 'मक्का', Cotton: 'कपास', Sugarcane: 'गन्ना', Mustard: 'सरसों', Soybean: 'सोयाबीन', Tomato: 'टमाटर', Potato: 'आलू', Onion: 'प्याज़', Chickpea: 'चना', Sunflower: 'सूरजमुखी' },
-  Punjabi: { Wheat: 'ਕਣਕ', Rice: 'ਚੌਲ', Maize: 'ਮੱਕੀ', Cotton: 'ਕਪਾਹ', Sugarcane: 'ਗੰਨਾ', Mustard: 'ਸਰ੍ਹੋਂ', Soybean: 'ਸੋਇਆਬੀਨ', Tomato: 'ਟਮਾਟਰ', Potato: 'ਆਲੂ', Onion: 'ਪਿਆਜ਼', Chickpea: 'ਛੋਲੇ', Sunflower: 'ਸੂਰਜਮੁਖੀ' },
-  Marathi: { Wheat: 'गहू', Rice: 'तांदूळ', Maize: 'मका', Cotton: 'कापूस', Sugarcane: 'ऊस', Mustard: 'मोहरी', Soybean: 'सोयाबीन', Tomato: 'टोमॅटो', Potato: 'बटाटा', Onion: 'कांदा', Chickpea: 'हरभरा', Sunflower: 'सूर्यफूल' },
-  Tamil: { Wheat: 'கோதுமை', Rice: 'அரிசி', Maize: 'மக்காச்சோளம்', Cotton: 'பருத்தி', Sugarcane: 'கரும்பு', Mustard: 'கடுகு', Soybean: 'சோயாபீன்', Tomato: 'தக்காளி', Potato: 'உருளைக்கிழங்கு', Onion: 'வெங்காயம்', Chickpea: 'கொண்டைக்கடலை', Sunflower: 'சூரியகாந்தி' },
-  Telugu: { Wheat: 'గోధుమ', Rice: 'వరి', Maize: 'మొక్కజొన్న', Cotton: 'పత్తి', Sugarcane: 'చెరకు', Mustard: 'ఆవాలు', Soybean: 'సోయాబీన్', Tomato: 'టమాటా', Potato: 'బంగాళాదుంప', Onion: 'ఉల్లిపాయ', Chickpea: 'శనగ', Sunflower: 'పొద్దుతిరుగుడు' },
-  Gujarati: { Wheat: 'ઘઉં', Rice: 'ચોખા', Maize: 'મકાઈ', Cotton: 'કપાસ', Sugarcane: 'શેરડી', Mustard: 'રાઈ', Soybean: 'સોયાબીન', Tomato: 'ટામેટાં', Potato: 'બટાકા', Onion: 'ડુંગળી', Chickpea: 'ચણા', Sunflower: 'સૂર્યમુખી' },
-  'Portuguese (Brazil)': { Wheat: 'Trigo', Rice: 'Arroz', Maize: 'Milho', Cotton: 'Algodão', Sugarcane: 'Cana-de-açúcar', Mustard: 'Mostarda', Soybean: 'Soja', Tomato: 'Tomate', Potato: 'Batata', Onion: 'Cebola', Chickpea: 'Grão-de-bico', Sunflower: 'Girassol' },
-  Russian: { Wheat: 'Пшеница', Rice: 'Рис', Maize: 'Кукуруза', Cotton: 'Хлопок', Sugarcane: 'Сахарный тростник', Mustard: 'Горчица', Soybean: 'Соя', Tomato: 'Томат', Potato: 'Картофель', Onion: 'Лук', Chickpea: 'Нут', Sunflower: 'Подсолнечник' },
-  'Mandarin (China)': { Wheat: '小麦', Rice: '水稻', Maize: '玉米', Cotton: '棉花', Sugarcane: '甘蔗', Mustard: '芥菜', Soybean: '大豆', Tomato: '番茄', Potato: '马铃薯', Onion: '洋葱', Chickpea: '鹰嘴豆', Sunflower: '向日葵' },
-  'English (South Africa)': { Wheat: 'Wheat', Rice: 'Rice', Maize: 'Maize', Cotton: 'Cotton', Sugarcane: 'Sugarcane', Mustard: 'Mustard', Soybean: 'Soybean', Tomato: 'Tomato', Potato: 'Potato', Onion: 'Onion', Chickpea: 'Chickpea', Sunflower: 'Sunflower' },
-  'Zulu (South Africa)': { Wheat: 'Ukolweni', Rice: 'Ilayisi', Maize: 'Ummbila', Cotton: 'Ukotini', Sugarcane: 'Umoba', Mustard: 'Isinaphi', Soybean: 'Ubhontshisi wesoya', Tomato: 'Utamatisi', Potato: 'Izambane', Onion: 'U-anyanisi', Chickpea: 'Ubhontshisi', Sunflower: 'Ubhekilanga' },
-};
-
 function normalizeField(field) {
   const { crop: legacyCrop, ...rest } = field;
   const legacyLabel = typeof legacyCrop === 'string' ? legacyCrop.split('·')[0].trim() : '';
@@ -52,13 +42,13 @@ function loadFields() {
   return initialFields.map(normalizeField);
 }
 
-function formatCropSummary(field) {
+function formatCropSummary(field, translate) {
   const crops = field.crops || [];
-  if (!crops.length) return 'Crop not set';
-  const shown = crops.slice(0, 2).join(', ');
+  if (!crops.length) return translate('fields.cropNotSet');
+  const shown = crops.slice(0, 2).map(crop => translate(`crops.${crop}`, { defaultValue: crop })).join(', ');
   return crops.length > 2 ? `${shown} +${crops.length - 2}` : shown;
 }
-const nav = [{ id: 'overview', icon: Activity, label: 'Overview' }, { id: 'diagnostics', icon: ScanLine, label: 'Crop diagnostics' }, { id: 'fields', icon: MapPin, label: 'My fields' }, { id: 'climate', icon: CloudSun, label: 'Climate & irrigation' }, { id: 'community', icon: Users, label: 'Community' }, { id: 'network', icon: Globe2, label: 'BRICS network' }];
+const nav = [{ id: 'overview', icon: Activity }, { id: 'diagnostics', icon: ScanLine }, { id: 'fields', icon: MapPin }, { id: 'climate', icon: CloudSun }, { id: 'community', icon: Users }, { id: 'network', icon: Globe2 }];
 const pagePaths = { overview: '/', diagnostics: '/diagnostics', fields: '/fields', climate: '/climate', community: '/community', network: '/network', login: '/login' };
 const pageFromLocation = () => Object.entries(pagePaths).find(([, path]) => path === window.location.pathname)?.[0] || 'overview';
 
@@ -67,51 +57,18 @@ class RouteErrorBoundary extends React.Component {
   static getDerivedStateFromError() { return { hasError: true }; }
   componentDidCatch(error, info) { console.error(`Route "${this.props.page}" failed to render.`, error, info); }
   render() {
-    if (this.state.hasError) return <section className="route-error" role="alert"><div className="route-error-mark"><CircleAlert size={22}/></div><h2>{this.props.page} is having trouble</h2><p>This page could not be loaded. Your other Fieldwise pages are still available.</p><button className="primary-btn" onClick={this.props.onGoDashboard}>Go back to dashboard</button></section>;
+    if (this.state.hasError) return <section className="route-error" role="alert"><div className="route-error-mark"><CircleAlert size={22}/></div><h2>{this.props.title}</h2><p>{this.props.description}</p><button className="primary-btn" onClick={this.props.onGoDashboard}>{this.props.button}</button></section>;
     return this.props.children;
   }
 }
 
-const countryLanguages = {
-  India: ['Hindi', 'Punjabi', 'Marathi', 'Tamil', 'Telugu', 'Gujarati'],
-  Brazil: ['Portuguese (Brazil)'],
-  Russia: ['Russian', 'Tatar', 'Bashkir', 'Chechen', 'Chuvash', 'Avar', 'Yakut (Sakha)'],
-  China: ['Mandarin (China)', 'Cantonese', 'Wu (Shanghainese)', 'Min Nan', 'Hakka', 'Tibetan', 'Uyghur', 'Mongolian'],
-  'South Africa': ['English (South Africa)', 'Zulu (South Africa)', 'Xhosa', 'Afrikaans', 'Sepedi', 'Setswana', 'Sesotho', 'Xitsonga', 'siSwati', 'Tshivenda', 'isiNdebele'],
-};
-
-const getLanguagesForCountry = (country) => {
-  const localLanguages = countryLanguages[country] || ['English'];
-  const networkLanguages = [...new Set(Object.values(countryLanguages).flat())].filter(language => !localLanguages.includes(language));
-  return { localHeading: `Local Languages – ${country}`, localLanguages, networkHeading: 'BRICS Network Languages', networkLanguages };
-};
 
 const alertData = [
-  { id: 'storm-khanna', severity: 'critical', priority: 'high', messageKey: 'heavyRain', message: 'Heavy rain expected Thursday in Khanna. Delay irrigation.', timestamp: '2026-09-29T08:15:00+05:30', actionLabel: 'View forecast', actionHref: '#climate' },
-  { id: 'river-bend-moisture', severity: 'warning', priority: 'high', messageKey: 'lowMoisture', message: 'Soil moisture is low in River Bend soybean. Check the field today.', timestamp: '2026-09-29T07:45:00+05:30', actionLabel: 'View field', actionHref: '#fields' },
-  { id: 'leaf-spot-river-bend', severity: 'warning', priority: 'high', messageKey: 'leafSpot', message: 'Possible leaf spot found in your latest photo. Review the diagnosis.', timestamp: '2026-09-29T06:30:00+05:30', actionLabel: 'Review diagnosis', actionHref: '#diagnostics' },
-  { id: 'weekly-report', severity: 'info', priority: 'normal', messageKey: 'weeklyReport', message: 'Your weekly farm health report is ready.', timestamp: '2026-09-28T17:00:00+05:30', actionLabel: 'View fields', actionHref: '#fields' },
+  { id: 'storm-khanna', severity: 'critical', priority: 'high', messageKey: 'heavyRain', actionKey: 'actionForecast', timestamp: '2026-09-29T08:15:00+05:30', actionHref: '#climate' },
+  { id: 'river-bend-moisture', severity: 'warning', priority: 'high', messageKey: 'lowMoisture', actionKey: 'actionField', timestamp: '2026-09-29T07:45:00+05:30', actionHref: '#fields' },
+  { id: 'leaf-spot-river-bend', severity: 'warning', priority: 'high', messageKey: 'leafSpot', actionKey: 'actionDiagnosis', timestamp: '2026-09-29T06:30:00+05:30', actionHref: '#diagnostics' },
+  { id: 'weekly-report', severity: 'info', priority: 'normal', messageKey: 'weeklyReport', actionKey: 'actionReport', timestamp: '2026-09-28T17:00:00+05:30', actionHref: '#fields' },
 ];
-
-const alertTranslations = {
-  Hindi: { heavyRain: 'खन्ना में गुरुवार को भारी बारिश की संभावना है। सिंचाई टालें।', lowMoisture: 'रिवर बेंड के सोयाबीन खेत में मिट्टी की नमी कम है। आज खेत जाँचें।', leafSpot: 'आपकी नवीनतम तस्वीर में पत्ती धब्बा रोग के संकेत मिले हैं। निदान देखें।', weeklyReport: 'आपकी साप्ताहिक खेत स्वास्थ्य रिपोर्ट तैयार है।', forecast: 'पूर्वानुमान देखें', field: 'खेत देखें', diagnosis: 'निदान देखें', report: 'खेत देखें' },
-  Punjabi: { heavyRain: 'ਖੰਨਾ ਵਿੱਚ ਵੀਰਵਾਰ ਨੂੰ ਭਾਰੀ ਮੀਂਹ ਦੀ ਸੰਭਾਵਨਾ ਹੈ। ਸਿੰਚਾਈ ਮੁਲਤਵੀ ਕਰੋ।', lowMoisture: 'ਰਿਵਰ ਬੈਂਡ ਦੇ ਸੋਇਆਬੀਨ ਖੇਤ ਵਿੱਚ ਮਿੱਟੀ ਦੀ ਨਮੀ ਘੱਟ ਹੈ। ਅੱਜ ਜਾਂਚੋ।', leafSpot: 'ਤੁਹਾਡੀ ਨਵੀਂ ਤਸਵੀਰ ਵਿੱਚ ਪੱਤਿਆਂ ਦੇ ਧੱਬੇ ਦੇ ਲੱਛਣ ਮਿਲੇ ਹਨ। ਜਾਂਚ ਵੇਖੋ।', weeklyReport: 'ਤੁਹਾਡੀ ਹਫ਼ਤਾਵਾਰੀ ਖੇਤ ਸਿਹਤ ਰਿਪੋਰਟ ਤਿਆਰ ਹੈ।', forecast: 'ਮੌਸਮ ਵੇਖੋ', field: 'ਖੇਤ ਵੇਖੋ', diagnosis: 'ਜਾਂਚ ਵੇਖੋ', report: 'ਖੇਤ ਵੇਖੋ' },
-  Marathi: { heavyRain: 'खन्ना येथे गुरुवारी मुसळधार पावसाची शक्यता आहे. सिंचन पुढे ढकला.', lowMoisture: 'रिव्हर बेंड सोयाबीनच्या शेतातील मातीचा ओलावा कमी आहे. आज तपासा.', leafSpot: 'तुमच्या अलीकडील फोटोमध्ये पानांवरील ठिपक्यांची शक्यता दिसते. निदान पाहा.', weeklyReport: 'तुमचा साप्ताहिक शेत आरोग्य अहवाल तयार आहे.', forecast: 'हवामान पाहा', field: 'शेत पाहा', diagnosis: 'निदान पाहा', report: 'शेत पाहा' },
-  Tamil: { heavyRain: 'கண்ணாவில் வியாழக்கிழமை கனமழை பெய்யலாம். பாசனத்தைத் தள்ளிவையுங்கள்.', lowMoisture: 'ரிவர் பெண்ட் சோயாபீன் வயலில் மண்ணின் ஈரப்பதம் குறைவாக உள்ளது. இன்று சரிபார்க்கவும்.', leafSpot: 'சமீபத்திய படத்தில் இலைப்புள்ளி அறிகுறிகள் இருக்கலாம். நோயறிதலைப் பார்க்கவும்.', weeklyReport: 'உங்கள் வாராந்திர பண்ணை நல அறிக்கை தயாராக உள்ளது.', forecast: 'வானிலைப் பாருங்கள்', field: 'வயலைப் பாருங்கள்', diagnosis: 'நோயறிதலைப் பாருங்கள்', report: 'வயல்களைப் பாருங்கள்' },
-  Telugu: { heavyRain: 'ఖన్నాలో గురువారం భారీ వర్షం కురిసే అవకాశం ఉంది. నీటిపారుదలను వాయిదా వేయండి.', lowMoisture: 'రివర్ బెండ్ సోయాబీన్ పొలంలో నేల తేమ తక్కువగా ఉంది. ఈరోజు తనిఖీ చేయండి.', leafSpot: 'మీ తాజా ఫోటోలో ఆకు మచ్చ వ్యాధి లక్షణాలు ఉండవచ్చు. నిర్ధారణను చూడండి.', weeklyReport: 'మీ వారపు పంట ఆరోగ్య నివేదిక సిద్ధంగా ఉంది.', forecast: 'వాతావరణాన్ని చూడండి', field: 'పొలాన్ని చూడండి', diagnosis: 'నిర్ధారణను చూడండి', report: 'పొలాలను చూడండి' },
-  Gujarati: { heavyRain: 'ખન્નામાં ગુરુવારે ભારે વરસાદની શક્યતા છે. સિંચાઈ મુલતવી રાખો.', lowMoisture: 'રિવર બેન્ડના સોયાબીન ખેતરમાં જમીનની ભેજ ઓછી છે. આજે તપાસો.', leafSpot: 'તમારા તાજેતરના ફોટામાં પાનના ટપકાંનાં લક્ષણો દેખાય છે. નિદાન જુઓ.', weeklyReport: 'તમારો સાપ્તાહિક ખેતર આરોગ્ય અહેવાલ તૈયાર છે.', forecast: 'આગાહી જુઓ', field: 'ખેતર જુઓ', diagnosis: 'નિદાન જુઓ', report: 'ખેતરો જુઓ' },
-  'Portuguese (Brazil)': { heavyRain: 'Há previsão de chuva forte na quinta-feira em Khanna. Adie a irrigação.', lowMoisture: 'A umidade do solo está baixa na soja de River Bend. Verifique a área hoje.', leafSpot: 'Sua foto mais recente pode indicar mancha foliar. Revise o diagnóstico.', weeklyReport: 'Seu relatório semanal de saúde da fazenda está pronto.', forecast: 'Ver previsão', field: 'Ver talhão', diagnosis: 'Revisar diagnóstico', report: 'Ver talhões' },
-  Russian: { heavyRain: 'В четверг в Кханне ожидаются сильные дожди. Отложите полив.', lowMoisture: 'Влажность почвы на соевом поле Ривер-Бенд низкая. Проверьте поле сегодня.', leafSpot: 'На последнем фото возможны признаки пятнистости листьев. Проверьте диагноз.', weeklyReport: 'Готов еженедельный отчёт о состоянии вашей фермы.', forecast: 'Прогноз погоды', field: 'Открыть поле', diagnosis: 'Проверить диагноз', report: 'Открыть поля' },
-  'Mandarin (China)': { heavyRain: '卡纳周四预计有强降雨。请推迟灌溉。', lowMoisture: '河湾大豆田土壤水分偏低。请于今天检查田地。', leafSpot: '最新照片可能显示叶斑病迹象。请查看诊断结果。', weeklyReport: '您的每周农场健康报告已准备就绪。', forecast: '查看天气', field: '查看田地', diagnosis: '查看诊断', report: '查看田地' },
-  'English (South Africa)': { heavyRain: 'Heavy rain expected Thursday in Khanna. Delay irrigation.', lowMoisture: 'Soil moisture is low in River Bend soybean. Check the field today.', leafSpot: 'Possible leaf spot found in your latest photo. Review the diagnosis.', weeklyReport: 'Your weekly farm health report is ready.', forecast: 'View forecast', field: 'View field', diagnosis: 'Review diagnosis', report: 'View fields' },
-  'Zulu (South Africa)': { heavyRain: 'Kulindeleke imvula enkulu eKhanna ngoLwesine. Hlehlisa ukunisela.', lowMoisture: 'Umswakama womhlabathi uphansi ensimini yesoya eRiver Bend. Hlola insimu namuhla.', leafSpot: 'Isithombe sakho sakamuva singase sibonise amabala emaqabungeni. Buyekeza ukuhlolwa.', weeklyReport: 'Umbiko wakho wamasonto onke wezempilo yepulazi usulungile.', forecast: 'Buka isibikezelo', field: 'Buka insimu', diagnosis: 'Buyekeza ukuhlolwa', report: 'Buka amasimu' },
-};
-
-const alertLanguageFallbacks = {
-  Tatar: 'Russian', Bashkir: 'Russian', Chechen: 'Russian', Chuvash: 'Russian', Avar: 'Russian', 'Yakut (Sakha)': 'Russian',
-  Cantonese: 'Mandarin (China)', 'Wu (Shanghainese)': 'Mandarin (China)', 'Min Nan': 'Mandarin (China)', Hakka: 'Mandarin (China)', Tibetan: 'Mandarin (China)', Uyghur: 'Mandarin (China)', Mongolian: 'Mandarin (China)',
-  Xhosa: 'English (South Africa)', Afrikaans: 'English (South Africa)', Sepedi: 'English (South Africa)', Setswana: 'English (South Africa)', Sesotho: 'English (South Africa)', Xitsonga: 'English (South Africa)', siSwati: 'English (South Africa)', Tshivenda: 'English (South Africa)', isiNdebele: 'English (South Africa)',
-};
 
 function getActiveAlerts() {
   const order = { critical: 0, warning: 1, info: 2 };
@@ -124,12 +81,6 @@ function readDismissedAlertIds() {
     ...read(window.localStorage, 'fieldwise-dismissed-alerts'),
     ...read(window.sessionStorage, 'fieldwise-dismissed-critical-alerts'),
   ])];
-}
-
-function translatedAlert(alert, language) { return alertTranslations[language]?.[alert.messageKey] || alertTranslations[alertLanguageFallbacks[language]]?.[alert.messageKey] || alert.message; }
-function translatedAction(alert, language) {
-  const key = alert.actionHref === '#climate' ? 'forecast' : alert.actionHref === '#diagnostics' ? 'diagnosis' : alert.id === 'weekly-report' ? 'report' : 'field';
-  return alertTranslations[language]?.[key] || alertTranslations[alertLanguageFallbacks[language]]?.[key] || alert.actionLabel;
 }
 
 function playAlertChime() {
@@ -150,32 +101,39 @@ function playAlertChime() {
 }
 
 function ReadAloudPlayer({ speech, onListen, showHint, language }) {
+  const { t } = useTranslation();
   return <>
-    {!speech.supported ? <div className="speech-support-message" role="status" aria-live="polite">Voice is not supported in this browser.</div> : <div className={`read-aloud-player ${speech.state !== 'idle' ? 'playing' : ''}`}>
-      {showHint && speech.state === 'idle' && <div className="listen-hint">Tap here to listen to your farm updates.</div>}
-      {speech.state === 'idle' ? <button className="listen-main" onClick={onListen} aria-label="Listen to this page" title="Listen to this page" aria-pressed="false"><Volume2 size={24}/><span>Listen</span></button> : <div className="listen-controls" role="group" aria-label="Read aloud controls">
+    {!speech.supported ? <div className="speech-support-message" role="status" aria-live="polite">{t('readAloud.unsupported')}</div> : <div className={`read-aloud-player ${speech.state !== 'idle' ? 'playing' : ''}`}>
+      {showHint && speech.state === 'idle' && <div className="listen-hint">{t('readAloud.hint')}</div>}
+      {speech.state === 'idle' ? <button className="listen-main" onClick={onListen} aria-label={t('readAloud.listenPage')} title={t('readAloud.listenPage')} aria-pressed="false"><Volume2 size={24}/><span>{t('readAloud.listen')}</span></button> : <div className="listen-controls" role="group" aria-label={t('readAloud.controls')}>
         <span className="listen-wave" aria-hidden="true"><i/><i/><i/></span>
-        <button className="listen-control" onClick={speech.previous} aria-label="Previous item"><SkipBack size={18}/><span>Previous</span></button>
-        {speech.state === 'playing' ? <button className="listen-control primary" onClick={speech.pause} aria-label="Pause reading"><Pause size={18}/><span>Pause</span></button> : <button className="listen-control primary" onClick={speech.resume} aria-label="Resume reading"><Play size={18}/><span>Resume</span></button>}
-        <button className="listen-control" onClick={speech.next} aria-label="Next item"><SkipForward size={18}/><span>Next</span></button>
-        <button className="listen-control" onClick={speech.stop} aria-label="Stop reading"><VolumeX size={18}/><span>Stop</span></button>
-        <button className="listen-speed" onClick={speech.toggleSpeed} aria-label={`Speech speed: ${speech.speed}. Change speed`}>{speech.speed === 'slow' ? 'Slow' : 'Normal'}</button>
+        <button className="listen-control" onClick={speech.previous} aria-label={t('readAloud.previous')}><SkipBack size={18}/><span>{t('readAloud.previous')}</span></button>
+        {speech.state === 'playing' ? <button className="listen-control primary" onClick={speech.pause} aria-label={t('readAloud.pause')}><Pause size={18}/><span>{t('readAloud.pause')}</span></button> : <button className="listen-control primary" onClick={speech.resume} aria-label={t('readAloud.resume')}><Play size={18}/><span>{t('readAloud.resume')}</span></button>}
+        <button className="listen-control" onClick={speech.next} aria-label={t('readAloud.next')}><SkipForward size={18}/><span>{t('readAloud.next')}</span></button>
+        <button className="listen-control" onClick={speech.stop} aria-label={t('readAloud.stop')}><VolumeX size={18}/><span>{t('readAloud.stop')}</span></button>
+        <button className="listen-speed" onClick={speech.toggleSpeed} aria-label={t('readAloud.speedLabel',{speed:t(speech.speed === 'slow' ? 'readAloud.slow' : 'readAloud.normal')})}>{t(speech.speed === 'slow' ? 'readAloud.slow' : 'readAloud.normal')}</button>
       </div>}
       {speech.notice && <span className="speech-notice" role="status" aria-live="polite">{speech.notice}</span>}
-      <span className="sr-only" aria-live="polite">{getSpeechStateLabel(language, speech.state)}</span>
+      <span className="sr-only" aria-live="polite">{t(`speech.state.${speech.state}`)}</span>
     </div>}
   </>;
 }
 
 function SettingsModal({ autoReadCritical, onAutoReadChange, onClose }) {
+  const { t } = useTranslation();
   return <div className="modal-backdrop" onClick={onClose}><section className="modal read-settings" role="dialog" aria-modal="true" aria-labelledby="settings-title" onClick={event => event.stopPropagation()}>
-    <button type="button" className="modal-close" onClick={onClose} aria-label="Close settings"><X size={18}/></button><span className="modal-icon"><Settings size={19}/></span><h2 id="settings-title">Settings</h2><p>Choose how Fieldwise shares important updates.</p>
-    <label className="auto-read-setting"><input type="checkbox" checked={autoReadCritical} onChange={event => onAutoReadChange(event.target.checked)}/><span><b>Read urgent alerts automatically</b><small>Play a short chime and read new critical alerts aloud.</small></span></label>
-    <button type="button" className="primary-btn modal-submit" onClick={onClose}>Done</button>
+    <button type="button" className="modal-close" onClick={onClose} aria-label={t('settings.close')}><X size={18}/></button><span className="modal-icon"><Settings size={19}/></span><h2 id="settings-title">{t('settings.title')}</h2><p>{t('settings.description')}</p>
+    <label className="auto-read-setting"><input type="checkbox" checked={autoReadCritical} onChange={event => onAutoReadChange(event.target.checked)}/><span><b>{t('settings.autoRead')}</b><small>{t('settings.autoReadDescription')}</small></span></label>
+    <button type="button" className="primary-btn modal-submit" onClick={onClose}>{t('common.done')}</button>
   </section></div>;
 }
 
 function App() {
+  const { t, i18n } = useTranslation();
+  useEffect(() => {
+    document.title = t('meta.title');
+    document.querySelector('meta[name="description"]')?.setAttribute('content', t('meta.description'));
+  }, [i18n.resolvedLanguage, t]);
   const [currentUser, setCurrentUser] = useState(getSessionUser);
   const [page, setPageState] = useState(() => isAuthenticated() ? pageFromLocation() : 'login');
   const setPage = useCallback(nextPage => {
@@ -197,15 +155,11 @@ function App() {
   const [theme, setThemeState] = useState(() => document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light');
   const [dismissedAlertIds, setDismissedAlertIds] = useState(readDismissedAlertIds);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
-  const [language, setLanguage] = useState(() => {
-    try {
-      const savedCountry = window.localStorage.getItem('fieldwise-country');
-      const savedLanguage = window.localStorage.getItem('fieldwise-language');
-      const initialCountry = countryLanguages[savedCountry] ? savedCountry : 'India';
-      const allLanguages = [...new Set(Object.values(countryLanguages).flat())];
-      return allLanguages.includes(savedLanguage) ? savedLanguage : getLanguagesForCountry(initialCountry).localLanguages[0];
-    } catch { return 'Punjabi'; }
-  });
+  const language = languageCodeToLabel(i18n.resolvedLanguage || i18n.language || 'en', country);
+  const changeLanguage = useCallback(value => {
+    const code = languageCatalog[value]?.code || labelToLanguageCode[value] || value;
+    return i18n.changeLanguage(code);
+  }, [i18n]);
   const [fields, setFields] = useState(loadFields);
   const [communityNarration, setCommunityNarration] = useState(communityData);
   const handleCommunityDataChange = useCallback(data => setCommunityNarration(current => ({ ...current, ...data })), []);
@@ -228,9 +182,9 @@ function App() {
   useEffect(() => {
     try {
       window.localStorage.setItem('fieldwise-country', country);
-      window.localStorage.setItem('fieldwise-language', language);
+      window.localStorage.setItem('fieldwise-language', i18n.resolvedLanguage || i18n.language || 'en');
     } catch { /* Storage may be unavailable in private browsing contexts. */ }
-  }, [country, language]);
+  }, [country, language, i18n.language, i18n.resolvedLanguage]);
   useEffect(() => {
     try { window.localStorage.setItem('fieldwise-fields', JSON.stringify(fields.map(normalizeField))); }
     catch { /* Local field persistence is optional in restricted browsers. */ }
@@ -242,7 +196,7 @@ function App() {
   }, []);
   const changeCountry = (nextCountry) => {
     const { localLanguages } = getLanguagesForCountry(nextCountry);
-    if (!localLanguages.includes(language)) setLanguage(localLanguages[0]);
+    if (!localLanguages.includes(language)) changeLanguage(localLanguages[0]);
     setCountry(nextCountry);
   };
   const toggleTheme = () => {
@@ -263,26 +217,26 @@ function App() {
   const notify = (msg) => { setToast(msg); setTimeout(() => setToast(''), 2600); };
   const analyze = (file) => diagnosisFlow.selectFile(file);
   const runDiagnosis = async () => {
-    const result = await diagnosisFlow.analyze(language);
+    const result = await diagnosisFlow.analyze(i18n.resolvedLanguage || i18n.language || 'en');
     if (result?.severity && /high|severe|critical/i.test(String(result.severity)) && result.confidence >= 0.8) {
-      setDiagnosisAlert({ id: `diagnosis-${Date.now()}`, severity: 'warning', priority: 'high', messageKey: 'diagnosisRisk', message: `${result.disease?.name || 'Crop disease'} detected with high confidence. Review the treatment guidance.`, timestamp: new Date().toISOString(), actionLabel: 'Review diagnosis', actionHref: '#diagnostics' });
+      setDiagnosisAlert({ id: `diagnosis-${Date.now()}`, severity: 'warning', priority: 'high', messageKey: 'diagnosisRisk', messageValues: { disease: result.disease?.name || t('diagnostics.cropDisease') }, actionKey: 'actionDiagnosis', timestamp: new Date().toISOString(), actionHref: '#diagnostics' });
     }
   };
   const saveDiagnosisNote = (fieldName) => {
-    const note = { id: `diagnosis-note-${Date.now()}`, fieldName, crop: diagnosisResult?.crop || diagnosticCrop, title: diagnosisResult?.disease?.name || 'Healthy crop check', confidence: Math.round((diagnosisResult?.confidence || 0) * 100), createdAt: new Date().toISOString() };
+    const note = { id: `diagnosis-note-${Date.now()}`, fieldName, crop: diagnosisResult?.crop || diagnosticCrop, title: diagnosisResult?.disease?.name, titleKey: diagnosisResult?.disease?.name ? null : 'diagnostics.healthyCheck', confidence: Math.round((diagnosisResult?.confidence || 0) * 100), createdAt: new Date().toISOString() };
     setSavedDiagnosisNotes(current => { const next = [note, ...current]; try { window.localStorage.setItem('fieldwise-diagnosis-notes', JSON.stringify(next)); } catch { /* Notes remain available for this session. */ } return next; });
-    notify('Diagnosis added to field notes.');
+    notify(t('diagnostics.savedToNotes'));
   };
-  const addField = (data) => { setFields(current => [...current, normalizeField({ name: data.name, crops: data.crops, area: data.area, health: 80, status: 'Healthy', color: 'green', ndvi: '.71', water: 'Good' })]); setShowFieldForm(false); notify('Field added to your farm.'); };
-  const selected = nav.find(x => x.id === page)?.label || 'Overview';
+  const addField = (data) => { setFields(current => [...current, normalizeField({ name: data.name, crops: data.crops, area: data.area, health: 80, statusKey: 'fields.statuses.healthy', color: 'green', ndvi: '.71', water: 'Good' })]); setShowFieldForm(false); notify(t('fields.fieldAdded')); };
+  const selected = t(`sidebar.${page === 'diagnostics' ? 'diagnostics' : page === 'fields' ? 'fields' : page === 'climate' ? 'climate' : page === 'community' ? 'community' : page === 'network' ? 'network' : 'overview'}`);
   const availableCrops = [...new Set(fields.flatMap(field => field.crops || []))];
   const allAlerts = diagnosisAlert ? [...alertData, diagnosisAlert] : alertData;
   const activeAlerts = [...getActiveAlerts(), ...(diagnosisAlert ? [diagnosisAlert] : [])].filter(alert => !dismissedAlertIds.includes(alert.id));
   const speechQueue = useMemo(() => buildReadingQueue({
     page, userName: currentUser?.fullName?.split(/\s+/)[0], date: new Intl.DateTimeFormat(speechLanguageCodes[language] || 'en-IN', { dateStyle: 'long' }).format(new Date()),
-    fields, activeAlerts: activeAlerts.map(alert => ({ ...alert, speechText: translatedAlert(alert, language) })), notifications: activeAlerts.map(alert => ({ ...alert, speechText: translatedAlert(alert, language) })),
-    language, diagnosis, diagnosticCrop, community: page === 'community' ? communityNarration : undefined, weather: { temperature: 28, condition: speechTemplates[language]?.conditionPartlyCloudy || speechTemplates.English.conditionPartlyCloudy, rainDay: speechTemplates[language]?.dayThursday || 'Thursday', rainAmount: 12 },
-  }), [page, currentUser, fields, activeAlerts, language, diagnosis, diagnosticCrop, communityNarration]);
+    fields, activeAlerts: activeAlerts.map(alert => ({ ...alert, speechText: t(`alerts.${alert.messageKey}`, alert.messageValues) })), notifications: activeAlerts.map(alert => ({ ...alert, speechText: t(`alerts.${alert.messageKey}`, alert.messageValues) })),
+    language, diagnosis, diagnosticCrop, community: page === 'community' ? communityNarration : undefined, weather: { temperature: 28, condition: t('speech.conditionPartlyCloudy'), rainDay: t('speech.dayThursday'), rainAmount: 12 },
+  }), [page, currentUser, fields, activeAlerts, language, diagnosis, diagnosticCrop, communityNarration, t]);
   const speech = useReadAloud({ queue: speechQueue, language });
   const handleReadAloud = () => {
     try { window.localStorage.setItem('fieldwise-read-aloud-hint', '1'); } catch { /* Hint preference is optional. */ }
@@ -327,25 +281,25 @@ function App() {
     const newAlert = critical.find(alert => !previousCriticalIdsRef.current.includes(alert.id));
     if (newAlert && autoReadCritical && hasInteractedRef.current && speech.supported) {
       playAlertChime();
-      window.setTimeout(() => speech.start([{ id: `alert-${newAlert.id}`, text: translatedAlert(newAlert, language) }]), 350);
+      window.setTimeout(() => speech.start([{ id: `alert-${newAlert.id}`, text: t(`alerts.${newAlert.messageKey}`) }]), 350);
     }
     previousCriticalIdsRef.current = critical.map(alert => alert.id);
   }, [activeAlerts, autoReadCritical, language, speech.supported, speech.start]);
   const completeLogin = (user) => { setCurrentUser(user); setPage('overview'); };
   const handleLogout = () => { logout(); setCurrentUser(null); setPage('login'); setProfileMenuOpen(false); };
-  if (!currentUser) return <AuthScreen language={language} country={country} onLanguageChange={setLanguage} theme={theme} onToggleTheme={toggleTheme} onLogin={completeLogin}/>;
+  if (!currentUser) return <AuthScreen language={language} country={country} theme={theme} onToggleTheme={toggleTheme} onLogin={completeLogin}/>;
   return <div className="app-shell">
     <aside className={`sidebar ${menuOpen ? 'open' : ''}`}>
-      <div className="brand"><span className="brand-mark"><Sprout size={19}/></span><span>fieldwise<span className="brand-dot">.</span></span><button className="icon-btn close-menu" onClick={() => setMenuOpen(false)}><X size={18}/></button></div>
-      <div className="farm-switch"><span className="farm-avatar">S</span><span className="farm-copy"><b>Sundar Farms</b><small>Farmer workspace</small></span><ChevronDown size={15}/></div>
-      <div className="nav-label">WORKSPACE</div>
-      <nav>{nav.map(item => <button key={item.id} onClick={() => { setPage(item.id); setMenuOpen(false); }} className={`nav-item ${page === item.id ? 'active' : ''}`}><item.icon size={18}/><span>{item.label}</span>{item.id === 'diagnostics' && <span className="nav-count">2</span>}</button>)}</nav>
-      <div className="sidebar-bottom"><div className="support-card"><div className="support-icon"><HelpCircle size={17}/></div><b>Need a hand?</b><p>Get guidance from a local agronomist.</p><button onClick={() => notify('Agronomist support will be available soon.')}>Contact support <ArrowRight size={14}/></button></div><button className="nav-item" onClick={() => setSettingsOpen(true)}><Settings size={18}/><span>Settings</span></button><div className="profile"><div className="profile-avatar">{userInitials}</div><div><b>{currentUser.fullName}</b><small>{currentUser.username === 'arjun' ? 'Punjab, India' : country}</small></div><button className="profile-menu-trigger" aria-label="Open account menu" aria-expanded={profileMenuOpen} onClick={() => setProfileMenuOpen(!profileMenuOpen)}><MoreHorizontal size={19}/></button>{profileMenuOpen && <div className="profile-menu"><button onClick={handleLogout}><LogOut size={15}/> Log out</button></div>}</div></div>
+      <div className="brand"><span className="brand-mark"><Sprout size={19}/></span><span>fieldwise<span className="brand-dot">.</span></span><button className="icon-btn close-menu" onClick={() => setMenuOpen(false)} aria-label={t('header.closeMenu')}><X size={18}/></button></div>
+      <div className="farm-switch"><span className="farm-avatar">S</span><span className="farm-copy"><b>Sundar Farms</b><small>{t('sidebar.farmerWorkspace')}</small></span><ChevronDown size={15}/></div>
+      <div className="nav-label">{t('sidebar.workspace')}</div>
+      <nav>{nav.map(item => <button key={item.id} onClick={() => { setPage(item.id); setMenuOpen(false); }} className={`nav-item ${page === item.id ? 'active' : ''}`}><item.icon size={18}/><span>{t(`sidebar.${item.id}`)}</span>{item.id === 'diagnostics' && <span className="nav-count">2</span>}</button>)}</nav>
+      <div className="sidebar-bottom"><div className="support-card"><div className="support-icon"><HelpCircle size={17}/></div><b>{t('sidebar.needHelp')}</b><p>{t('sidebar.guidance')}</p><button onClick={() => notify(t('sidebar.supportSoon'))}>{t('sidebar.contact')} <ArrowRight size={14}/></button></div><button className="nav-item" onClick={() => setSettingsOpen(true)}><Settings size={18}/><span>{t('sidebar.settings')}</span></button><div className="profile"><div className="profile-avatar">{userInitials}</div><div><b>{currentUser.fullName}</b><small>{currentUser.username === 'arjun' ? 'Punjab, India' : t(`countries.${country}`, { defaultValue: country })}</small></div><button className="profile-menu-trigger" aria-label={t('sidebar.accountMenu')} title={t('sidebar.accountMenu')} aria-expanded={profileMenuOpen} onClick={() => setProfileMenuOpen(!profileMenuOpen)}><MoreHorizontal size={19}/></button>{profileMenuOpen && <div className="profile-menu"><button onClick={handleLogout}><LogOut size={15}/> {t('sidebar.logout')}</button></div>}</div></div>
     </aside>
     {menuOpen && <div className="scrim" onClick={() => setMenuOpen(false)} />}
-    <main className="main-area">{page === 'overview' && activeAlerts.length > 0 && <AlertRibbon alerts={activeAlerts} language={language} onDismiss={dismissAlert} onNavigate={navigateToAlert} currentReadItem={speech.currentItem}/>}<header className="topbar"><button className="icon-btn menu-toggle" onClick={() => setMenuOpen(true)}><Menu size={20}/></button><div className="crumb">Workspace <ChevronRight size={14}/> <b>{selected}</b></div><div className="top-actions"><div className="weather-pill" data-read-id="weather"><CloudSun size={17}/><span>28°</span><i>Partly cloudy</i></div><span className="top-divider"/><div className="notifications-wrap" ref={notificationsRef}><button className="icon-btn notification" onClick={() => setNotificationsOpen(!notificationsOpen)} aria-label="Open notifications" aria-haspopup="true" aria-expanded={notificationsOpen}><Bell size={18}/>{activeAlerts.length > 0 && <i/>}</button>{notificationsOpen && <div className="notification-dropdown" role="region" aria-label="All notifications"><div className="notification-heading"><b>Notifications</b><span>{allAlerts.length} updates</span></div>{[...allAlerts].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)).map(alert => <div className="notification-item" key={alert.id} data-read-id={`notification-${alert.id}`}><span className={`notification-severity ${alert.severity}`}/><div><b>{translatedAlert(alert, language)}</b><small>{alert.priority === 'high' ? 'High priority' : 'Farm update'} · {new Date(alert.timestamp).toLocaleDateString()}</small><button onClick={() => navigateToAlert(alert.actionHref)}>{translatedAction(alert, language)} <ArrowRight size={12}/></button></div></div>)}</div>}</div><select className="country-select" value={country} onChange={e => changeCountry(e.target.value)} aria-label="Choose region"><option>India</option><option>Brazil</option><option>China</option><option>Russia</option><option>South Africa</option></select><LanguageSelector country={country} language={language} onLanguageChange={setLanguage}/><button className="icon-btn theme-toggle" onClick={toggleTheme} title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'} aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}>{theme === 'dark' ? <Sun size={18}/> : <Moon size={18}/>}</button>{speech.supported && <button className={`icon-btn read-aloud-header ${speech.state !== 'idle' ? 'is-speaking' : ''}`} onClick={handleReadAloud} title="Listen to this page" aria-label={speech.state !== 'idle' ? 'Stop reading aloud' : 'Listen to this page'} aria-pressed={speech.state !== 'idle'}>{speech.state === 'idle' ? <Volume2 size={18}/> : <VolumeX size={18}/>}</button>}</div></header>
-      <div className="content"><div className="page-heading"><div><div className="eyebrow"><Sun size={14}/> MONDAY, 29 SEPTEMBER 2026 <span className="eyebrow-dot">·</span> KHANNA, PUNJAB</div><h1>{page === 'overview' ? 'Good morning, Arjun' : selected}<span className="wave">{page === 'overview' ? ' ☀' : ''}</span></h1><p>{page === 'overview' ? 'Here’s what’s happening across your farm today.' : page === 'diagnostics' ? 'Check crop health with a quick photo from your field.' : page === 'network' ? 'A shared learning network built on locally governed farm data.' : page === 'climate' ? 'Plan ahead with local weather and crop-specific water guidance.' : 'A clear view of crop health across your fields.'}</p></div><button className="date-button"><ChevronLeft size={16}/> This week <ChevronDown size={14}/></button></div>
-      <RouteErrorBoundary key={page} page={selected} onGoDashboard={() => setPage('overview')}>
+    <main className="main-area">{page === 'overview' && activeAlerts.length > 0 && <AlertRibbon alerts={activeAlerts} language={language} onDismiss={dismissAlert} onNavigate={navigateToAlert} currentReadItem={speech.currentItem}/>}<header className="topbar"><button className="icon-btn menu-toggle" onClick={() => setMenuOpen(true)} aria-label={t('header.openMenu')}><Menu size={20}/></button><div className="crumb">{t('header.workspace')} <ChevronRight size={14}/> <b>{selected}</b></div><div className="top-actions"><div className="weather-pill" data-read-id="weather"><CloudSun size={17}/><span>{t('weather.temperature', { value: 28 })}</span><i>{t('weather.partlyCloudy')}</i></div><span className="top-divider"/><div className="notifications-wrap" ref={notificationsRef}><button className="icon-btn notification" onClick={() => setNotificationsOpen(!notificationsOpen)} aria-label={t('header.openNotifications')} title={t('header.openNotifications')} aria-haspopup="true" aria-expanded={notificationsOpen}><Bell size={18}/>{activeAlerts.length > 0 && <i/>}</button>{notificationsOpen && <div className="notification-dropdown" role="region" aria-label={t('header.allNotifications')}><div className="notification-heading"><b>{t('header.notifications')}</b><span>{t('header.updates', { count: allAlerts.length })}</span></div>{[...allAlerts].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)).map(alert => <div className="notification-item" key={alert.id} data-read-id={`notification-${alert.id}`}><span className={`notification-severity ${alert.severity}`}/><div><b>{t(`alerts.${alert.messageKey}`, alert.messageValues)}</b><small>{alert.priority === 'high' ? t('header.highPriority') : t('header.farmUpdate')} · {new Intl.DateTimeFormat(i18n.resolvedLanguage, { dateStyle: 'short' }).format(new Date(alert.timestamp))}</small><button onClick={() => navigateToAlert(alert.actionHref)}>{t(`alerts.${alert.actionKey}`)} <ArrowRight size={12}/></button></div></div>)}</div>}</div><select className="country-select" value={country} onChange={e => changeCountry(e.target.value)} aria-label={t('header.chooseRegion')}><option value="India">{t('countries.India')}</option><option value="Brazil">{t('countries.Brazil')}</option><option value="China">{t('countries.China')}</option><option value="Russia">{t('countries.Russia')}</option><option value="South Africa">{t('countries.South Africa')}</option></select><LanguageSelector country={country} language={language}/><button className="icon-btn theme-toggle" onClick={toggleTheme} title={t(theme === 'dark' ? 'header.switchLight' : 'header.switchDark')} aria-label={t(theme === 'dark' ? 'header.switchLight' : 'header.switchDark')}>{theme === 'dark' ? <Sun size={18}/> : <Moon size={18}/>}</button>{speech.supported && <button className={`icon-btn read-aloud-header ${speech.state !== 'idle' ? 'is-speaking' : ''}`} onClick={handleReadAloud} title={t('header.listen')} aria-label={speech.state !== 'idle' ? t('header.stopReading') : t('header.listen')} aria-pressed={speech.state !== 'idle'}>{speech.state === 'idle' ? <Volume2 size={18}/> : <VolumeX size={18}/>}</button>}</div></header>
+      <div className="content"><div className="page-heading"><div><div className="eyebrow"><Sun size={14}/> {new Intl.DateTimeFormat(i18n.resolvedLanguage, { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date())} <span className="eyebrow-dot">·</span> {t('dashboard.khanna').toLocaleUpperCase(i18n.resolvedLanguage)}</div><h1>{page === 'overview' ? t(`dashboard.${new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 18 ? 'afternoon' : 'evening'}`, { name: currentUser.fullName.split(/\s+/)[0] }) : selected}<span className="wave">{page === 'overview' ? ' ☀' : ''}</span></h1><p>{page === 'overview' ? t('dashboard.todaySummary') : page === 'diagnostics' ? t('dashboard.diagnosticsIntro') : page === 'network' ? t('dashboard.networkIntro') : page === 'climate' ? t('dashboard.climateIntro') : t('dashboard.fieldsIntro')}</p></div><button className="date-button"><ChevronLeft size={16}/> {t('dashboard.thisWeek')} <ChevronDown size={14}/></button></div>
+      <RouteErrorBoundary key={page} page={selected} title={t('error.title',{page:selected})} description={t('error.description')} button={t('error.goDashboard')} onGoDashboard={() => setPage('overview')}>
         {page === 'overview' && <Overview fields={fields} onAdd={() => setShowFieldForm(true)} onPage={setPage} diagnosisNotes={savedDiagnosisNotes} />}
         {page === 'diagnostics' && <Diagnostics image={image} diagnosis={diagnosisResult} status={diagnosisStatus} error={diagnosisError} analysesUsed={analysesUsed} inputRef={inputRef} onFile={analyze} onAnalyze={runDiagnosis} onDemo={diagnosisFlow.useDemo} onReset={diagnosisFlow.reset} onListen={() => speech.start([{ id: 'diagnosis', text: `${diagnosis?.title || 'Crop health result'}, ${diagnosis?.confidence || ''}. ${diagnosis?.description || ''} ${diagnosis?.treatment?.join('. ') || ''}` }])} onSave={saveDiagnosisNote} onHelp={() => notify('Agronomist support will be available soon.')} fields={fields} crops={availableCrops} selectedCrop={diagnosticCrop} onCropChange={setDiagnosticCrop} language={language} />}
         {page === 'fields' && <Fields fields={fields} onAdd={() => setShowFieldForm(true)} />}
@@ -353,7 +307,7 @@ function App() {
         {page === 'community' && <CommunityPage language={language} onDataChange={handleCommunityDataChange}/>}
         {page === 'network' && <Network country={country} />}
       </RouteErrorBoundary>
-      <footer className="footer"><span><ShieldCheck size={14}/> Your farm data stays under your control</span><span>FIELDWISE <i>·</i> FARM INTELLIGENCE</span></footer>
+      <footer className="footer"><span><ShieldCheck size={14}/> {t('footer.privacy')}</span><span>FIELDWISE <i>·</i> {t('footer.brandDescriptor')}</span></footer>
       </div>
     </main>
     {showFieldForm && <AddFieldModal language={language} onClose={() => setShowFieldForm(false)} onSubmit={addField}/>}
@@ -363,7 +317,8 @@ function App() {
   </div>;
 }
 
-function LanguageSelector({ country, language, onLanguageChange }) {
+function LanguageSelector({ country, language }) {
+  const { t, i18n } = useTranslation();
   const [open, setOpen] = useState(false);
   const rootRef = useRef(null);
   useEffect(() => {
@@ -374,21 +329,36 @@ function LanguageSelector({ country, language, onLanguageChange }) {
     return () => { document.removeEventListener('mousedown', closeOnOutsideClick); document.removeEventListener('keydown', closeOnEscape); };
   }, []);
   const languageGroups = getLanguagesForCountry(country);
+  const activeCode = i18n.resolvedLanguage || i18n.language || 'en';
+  const activeGlyph = getLanguageGlyph(activeCode);
+  const activeLanguageName = t(`languages.${activeCode}`, { defaultValue: languageCodeToLabel(activeCode, country) });
+  const activeGlyphCode = activeCode.split('-')[0].toLowerCase();
+  const selectLanguage = async (item) => {
+    const code = languageCatalog[item]?.code || labelToLanguageCode[item] || 'en';
+    try {
+      await i18n.changeLanguage(code);
+      try { window.localStorage.setItem('fieldwise-language', code); } catch { /* Language persistence is optional. */ }
+      if (import.meta.env.DEV) console.info('[i18n] language changed', { requested: code, resolved: i18n.resolvedLanguage || i18n.language });
+    } catch (error) {
+      if (import.meta.env.DEV) console.error('[i18n] language change failed', { requested: code, error });
+    }
+  };
   return <div className="language-selector" ref={rootRef}>
-    <button className={`icon-btn language-trigger ${open ? 'is-open' : ''}`} onClick={() => setOpen(!open)} aria-label={`Choose language. Current language: ${language}`} title={`Language: ${language}`} aria-haspopup="menu" aria-expanded={open}>
-      <Globe2 size={18}/>
+    <button className={`icon-btn language-trigger ${open ? 'is-open' : ''}`} onClick={() => setOpen(!open)} aria-label={t('language.change', { name: activeLanguageName })} title={t('language.change', { name: activeLanguageName })} aria-haspopup="dialog" aria-expanded={open}>
+      {activeGlyph ? <span key={activeCode} className="language-glyph" lang={activeCode}>{activeGlyph}{SHOW_LANG_CODE && <small>{activeGlyphCode.toUpperCase()}</small>}</span> : <Globe2 size={18}/>}
     </button>
-    {open && <div className="language-dropdown" role="menu" aria-label="Choose language">
-      <div className="language-menu-heading"><b>Language</b><span>Current: {language}</span></div>
-      {[{ title: languageGroups.localHeading, languages: languageGroups.localLanguages }, { title: languageGroups.networkHeading, languages: languageGroups.networkLanguages }].map(group => <div className="language-group" key={group.title}>
+    {open && <div className="language-dropdown" role="dialog" aria-label={t('language.choose')}>
+      <div className="language-menu-heading"><b>{t('language.title')}</b><span>{t('language.current', { name: activeLanguageName })}</span></div>
+      {[{ title: t('language.localHeading', { country: t(`countries.${country}`, { defaultValue: country }) }), languages: languageGroups.localLanguages }, { title: t('language.networkHeading'), languages: languageGroups.networkLanguages }].map(group => <div className="language-group" key={group.title}>
         <div className="language-group-title">{group.title}</div>
-        {group.languages.map(item => <button key={item} role="menuitemradio" aria-checked={language === item} className={`language-option ${language === item ? 'selected' : ''}`} onClick={() => { onLanguageChange(item); setOpen(false); }}><span>{item}</span>{language === item && <Check size={15}/>}</button>)}
+        {group.languages.map(item => { const code = labelToLanguageCode[item] || languageCatalog[item]?.code || 'en'; const native = languageCatalog[item]?.native || item; const translatedName = t(`languages.${code}`, { defaultValue: item }); const selectedLanguage = languageCodeToLabel(activeCode) === item; const label = native === translatedName ? native : `${native} · ${translatedName}`; return <button key={item} role="button" aria-pressed={selectedLanguage} className={`language-option ${selectedLanguage ? 'selected' : ''}`} onClick={async () => { await selectLanguage(item); setOpen(false); }}><span lang={code}>{label}</span>{selectedLanguage && <Check size={15}/>}</button>; })}
       </div>)}
     </div>}
   </div>;
 }
 
-function AuthScreen({ language, country, onLanguageChange, theme, onToggleTheme, onLogin }) {
+function AuthScreen({ language, country, theme, onToggleTheme, onLogin }) {
+  const { t } = useTranslation();
   const [mode, setMode] = useState('login');
   const [username, setUsername] = useState(getRememberedUsername());
   const [password, setPassword] = useState('');
@@ -410,19 +380,19 @@ function AuthScreen({ language, country, onLanguageChange, theme, onToggleTheme,
     if (!password) missing.push('password');
     if (missing.length) {
       setInvalidFields(missing);
-      setError(missing.includes('username') ? 'Please enter your username' : 'Please enter your password');
+      setError(missing.includes('username') ? 'auth.usernameRequired' : 'auth.passwordRequired');
       if (missing.includes('password')) passwordRef.current?.focus();
       return;
     }
     const result = login(username, password);
     if (!result.ok) {
       if (result.error === 'invalid-credentials') {
-        setError('Incorrect username or password. Please retype and try again.');
+        setError('auth.invalidCredentials');
         setInvalidFields(['username', 'password']);
         setPassword('');
         window.setTimeout(() => passwordRef.current?.focus(), 0);
       } else {
-        setError('Unable to save the demo session in this browser.');
+        setError('auth.sessionSaveError');
       }
       return;
     }
@@ -443,13 +413,13 @@ function AuthScreen({ language, country, onLanguageChange, theme, onToggleTheme,
       if (!confirmPassword) empty.push('confirmPassword');
       setInvalidFields(empty.length ? empty : result.error === 'username-taken' ? ['username'] : result.error === 'password-mismatch' ? ['password', 'confirmPassword'] : result.error === 'password-short' ? ['password'] : []);
       const messages = {
-        required: 'Please complete all fields.',
-        'password-short': 'Password must be at least 8 characters.',
-        'password-mismatch': 'Passwords do not match. Please retype.',
-        'username-taken': 'This username is already taken.',
-        storage: 'Unable to save the demo account in this browser.',
+        required: 'auth.completeFields',
+        'password-short': 'auth.passwordShort',
+        'password-mismatch': 'auth.passwordMismatch',
+        'username-taken': 'auth.usernameTaken',
+        storage: 'auth.accountSaveError',
       };
-      setError(messages[result.error] || 'Unable to create this account.');
+      setError(messages[result.error] || 'auth.accountCreateError');
       return;
     }
     setRememberedUsername(username, remember);
@@ -457,33 +427,34 @@ function AuthScreen({ language, country, onLanguageChange, theme, onToggleTheme,
     window.setTimeout(() => onLogin(result.user), 600);
   };
 
-  const passwordField = (id, label, value, setter, autocomplete, inputRef = null, fieldKey = id) => <label className="auth-label" htmlFor={id}>{label}<span className={`auth-password-wrap ${invalidFields.includes(fieldKey) ? 'invalid' : ''}`}><input id={id} ref={inputRef} type={showPassword ? 'text' : 'password'} autoComplete={autocomplete} value={value} onChange={update(setter)} aria-invalid={invalidFields.includes(fieldKey)} required/><button type="button" className="password-visibility" onClick={() => setShowPassword(!showPassword)} aria-label={showPassword ? 'Hide password' : 'Show password'}>{showPassword ? <EyeOff size={17}/> : <Eye size={17}/>}</button></span></label>;
+  const passwordField = (id, label, value, setter, autocomplete, inputRef = null, fieldKey = id) => <label className="auth-label" htmlFor={id}>{label}<span className={`auth-password-wrap ${invalidFields.includes(fieldKey) ? 'invalid' : ''}`}><input id={id} ref={inputRef} type={showPassword ? 'text' : 'password'} autoComplete={autocomplete} value={value} onChange={update(setter)} aria-invalid={invalidFields.includes(fieldKey)} required/><button type="button" className="password-visibility" onClick={() => setShowPassword(!showPassword)} aria-label={t(showPassword ? 'auth.hidePassword' : 'auth.showPassword')}>{showPassword ? <EyeOff size={17}/> : <Eye size={17}/>}</button></span></label>;
 
   return <div className="auth-shell">
-    <header className="auth-topbar"><a className="brand auth-brand" href="#login" onClick={event => event.preventDefault()}><span className="brand-mark"><Sprout size={19}/></span><span>fieldwise<span className="brand-dot">.</span></span></a><div className="auth-top-actions"><LanguageSelector country={country} language={language} onLanguageChange={onLanguageChange}/><button className="icon-btn theme-toggle" onClick={onToggleTheme} title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'} aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}>{theme === 'dark' ? <Sun size={18}/> : <Moon size={18}/>}</button></div></header>
+    <header className="auth-topbar"><a className="brand auth-brand" href="#login" onClick={event => event.preventDefault()}><span className="brand-mark"><Sprout size={19}/></span><span>fieldwise<span className="brand-dot">.</span></span></a><div className="auth-top-actions"><LanguageSelector country={country} language={language}/><button className="icon-btn theme-toggle" onClick={onToggleTheme} title={t(theme === 'dark' ? 'header.switchLight' : 'header.switchDark')} aria-label={t(theme === 'dark' ? 'header.switchLight' : 'header.switchDark')}>{theme === 'dark' ? <Sun size={18}/> : <Moon size={18}/>}</button></div></header>
     <main className="auth-main"><section className="auth-card">
-      <div className="auth-heading"><span className="section-kicker">FARM INTELLIGENCE</span><h1>{mode === 'login' ? 'Welcome back' : 'Join Fieldwise'}</h1><p>{mode === 'login' ? 'Sign in to see what’s happening across your farm.' : 'Create your farmer account to get started.'}</p></div>
-      <div className="auth-tabs" role="tablist" aria-label="Account access"><button role="tab" aria-selected={mode === 'login'} className={mode === 'login' ? 'active' : ''} onClick={() => { setMode('login'); setError(''); setInvalidFields([]); }}>Log in</button><button role="tab" aria-selected={mode === 'signup'} className={mode === 'signup' ? 'active' : ''} onClick={() => { setMode('signup'); setError(''); setInvalidFields([]); }}>Sign up</button></div>
-      {error && <div className="auth-error" role="alert" aria-live="polite"><CircleAlert size={16}/><span>{error}</span></div>}
+      <div className="auth-heading"><span className="section-kicker">{t('auth.brandKicker')}</span><h1>{t(mode === 'login' ? 'auth.welcomeBack' : 'auth.joinTitle')}</h1><p>{t(mode === 'login' ? 'auth.loginIntro' : 'auth.signupIntro')}</p></div>
+      <div className="auth-tabs" role="tablist" aria-label={t('auth.accountAccess')}><button role="tab" aria-selected={mode === 'login'} className={mode === 'login' ? 'active' : ''} onClick={() => { setMode('login'); setError(''); setInvalidFields([]); }}>{t('auth.loginTab')}</button><button role="tab" aria-selected={mode === 'signup'} className={mode === 'signup' ? 'active' : ''} onClick={() => { setMode('signup'); setError(''); setInvalidFields([]); }}>{t('auth.signupTab')}</button></div>
+      {error && <div className="auth-error" role="alert" aria-live="polite"><CircleAlert size={16}/><span>{t(error)}</span></div>}
       {mode === 'login' ? <form className="auth-form" onSubmit={handleLogin} noValidate>
-        <label className="auth-label" htmlFor="login-username">Username<input id="login-username" className={invalidFields.includes('username') ? 'invalid' : ''} type="text" autoComplete="username" value={username} onChange={update(setUsername)} aria-invalid={invalidFields.includes('username')} required/></label>
-        {passwordField('login-password', 'Password', password, setPassword, 'current-password', passwordRef, 'password')}
-        <label className="remember-row"><input type="checkbox" checked={remember} onChange={event => setRemember(event.target.checked)}/> <span>Remember me</span></label>
-        <button className="primary-btn auth-submit" type="submit" disabled={loading}>{loading ? <><span className="auth-spinner"/> Logging in…</> : 'Log in'}</button>
+        <label className="auth-label" htmlFor="login-username">{t('auth.username')}<input id="login-username" className={invalidFields.includes('username') ? 'invalid' : ''} type="text" autoComplete="username" value={username} onChange={update(setUsername)} aria-invalid={invalidFields.includes('username')} required/></label>
+        {passwordField('login-password', t('auth.password'), password, setPassword, 'current-password', passwordRef, 'password')}
+        <label className="remember-row"><input type="checkbox" checked={remember} onChange={event => setRemember(event.target.checked)}/> <span>{t('auth.rememberMe')}</span></label>
+        <button className="primary-btn auth-submit" type="submit" disabled={loading}>{loading ? <><span className="auth-spinner"/> {t('auth.loggingIn')}</> : t('auth.loginTab')}</button>
       </form> : <form className="auth-form" onSubmit={handleSignup} noValidate>
-        <label className="auth-label" htmlFor="signup-fullname">Full name<input id="signup-fullname" className={invalidFields.includes('fullName') ? 'invalid' : ''} type="text" autoComplete="name" value={fullName} onChange={update(setFullName)} aria-invalid={invalidFields.includes('fullName')} required/></label>
-        <label className="auth-label" htmlFor="signup-username">Username<input id="signup-username" className={invalidFields.includes('username') ? 'invalid' : ''} type="text" autoComplete="username" value={username} onChange={update(setUsername)} aria-invalid={invalidFields.includes('username')} required/></label>
-        {passwordField('signup-password', 'Password', password, setPassword, 'new-password', null, 'password')}
-        {passwordField('signup-confirm-password', 'Confirm password', confirmPassword, setConfirmPassword, 'new-password', null, 'confirmPassword')}
-        <label className="remember-row"><input type="checkbox" checked={remember} onChange={event => setRemember(event.target.checked)}/> <span>Remember me</span></label>
-        <button className="primary-btn auth-submit" type="submit" disabled={loading}>{loading ? <><span className="auth-spinner"/> Creating account…</> : 'Create account'}</button>
+        <label className="auth-label" htmlFor="signup-fullname">{t('auth.fullName')}<input id="signup-fullname" className={invalidFields.includes('fullName') ? 'invalid' : ''} type="text" autoComplete="name" value={fullName} onChange={update(setFullName)} aria-invalid={invalidFields.includes('fullName')} required/></label>
+        <label className="auth-label" htmlFor="signup-username">{t('auth.username')}<input id="signup-username" className={invalidFields.includes('username') ? 'invalid' : ''} type="text" autoComplete="username" value={username} onChange={update(setUsername)} aria-invalid={invalidFields.includes('username')} required/></label>
+        {passwordField('signup-password', t('auth.password'), password, setPassword, 'new-password', null, 'password')}
+        {passwordField('signup-confirm-password', t('auth.confirmPassword'), confirmPassword, setConfirmPassword, 'new-password', null, 'confirmPassword')}
+        <label className="remember-row"><input type="checkbox" checked={remember} onChange={event => setRemember(event.target.checked)}/> <span>{t('auth.rememberMe')}</span></label>
+        <button className="primary-btn auth-submit" type="submit" disabled={loading}>{loading ? <><span className="auth-spinner"/> {t('auth.creatingAccount')}</> : t('auth.createAccount')}</button>
       </form>}
-      <div className="auth-note"><ShieldCheck size={14}/><span>Your farm information stays under your control.</span></div>
+      <div className="auth-note"><ShieldCheck size={14}/><span>{t('auth.privacyNote')}</span></div>
     </section></main>
   </div>;
 }
 
 function AlertRibbon({ alerts, language, onDismiss, onNavigate, currentReadItem }) {
+  const { t } = useTranslation();
   const [index, setIndex] = useState(0);
   const [leaving, setLeaving] = useState(false);
   const exitTimer = useRef(null);
@@ -501,17 +472,18 @@ function AlertRibbon({ alerts, language, onDismiss, onNavigate, currentReadItem 
     setLeaving(true);
     exitTimer.current = window.setTimeout(() => { onDismiss(alert); setLeaving(false); }, 200);
   };
-  const actionLabel = translatedAction(alert, language);
+  const actionLabel = t(`alerts.${alert.actionKey}`);
   return <div className={`alert-ribbon ${alert.severity} ${leaving ? 'leaving' : ''}`} data-read-id={`alert-${alert.id}`} role={alert.severity === 'critical' ? 'alert' : 'status'} aria-live={alert.severity === 'critical' ? 'assertive' : 'polite'} aria-atomic="true">
     <Icon className="alert-ribbon-icon" size={18} aria-hidden="true"/>
-    <span className="alert-ribbon-message">{translatedAlert(alert, language)}</span>
+    <span className="alert-ribbon-message">{t(`alerts.${alert.messageKey}`, alert.messageValues)}</span>
     <a className="alert-ribbon-action" href={alert.actionHref} onClick={event => { event.preventDefault(); onNavigate(alert.actionHref); }}>{actionLabel} <ArrowRight size={13}/></a>
-    {alerts.length > 1 && <div className="alert-ribbon-pager"><span>{currentIndex + 1} of {alerts.length}</span><button onClick={() => setIndex((currentIndex - 1 + alerts.length) % alerts.length)} aria-label="Previous alert"><ArrowLeft size={14}/></button><button onClick={() => setIndex((currentIndex + 1) % alerts.length)} aria-label="Next alert"><ArrowRight size={14}/></button></div>}
-    <button className="alert-ribbon-close" onClick={dismiss} aria-label="Dismiss alert" title="Dismiss alert"><X size={16}/></button>
+    {alerts.length > 1 && <div className="alert-ribbon-pager"><span>{t('alerts.counter',{current:currentIndex+1,total:alerts.length})}</span><button onClick={() => setIndex((currentIndex - 1 + alerts.length) % alerts.length)} aria-label={t('alerts.previous')}><ArrowLeft size={14}/></button><button onClick={() => setIndex((currentIndex + 1) % alerts.length)} aria-label={t('alerts.next')}><ArrowRight size={14}/></button></div>}
+    <button className="alert-ribbon-close" onClick={dismiss} aria-label={t('alerts.dismiss')} title={t('alerts.dismiss')}><X size={16}/></button>
   </div>;
 }
 
 function AddFieldModal({ language, onClose, onSubmit }) {
+  const { t } = useTranslation();
   const [name, setName] = useState('');
   const [crops, setCrops] = useState([]);
   const [area, setArea] = useState('');
@@ -523,23 +495,24 @@ function AddFieldModal({ language, onClose, onSubmit }) {
     onSubmit({ name: name.trim(), crops, area: Number(area) });
   };
   return <div className="modal-backdrop" onClick={onClose}><form className="modal" role="dialog" aria-modal="true" aria-labelledby="add-field-title" noValidate onSubmit={save} onClick={event => event.stopPropagation()}>
-    <button type="button" className="modal-close" onClick={onClose} aria-label="Close add field dialog"><X size={18}/></button><span className="modal-icon"><MapPin size={20}/></span><h2 id="add-field-title">Add a field</h2><p>Start tracking crop health and local conditions.</p>
-    <label>Field name<input className={attempted && !name.trim() ? 'invalid' : ''} value={name} onChange={event => setName(event.target.value)} placeholder="e.g. West Meadow" autoFocus aria-invalid={attempted && !name.trim()}/></label>
-    <div className="form-row"><label>Crop<CropMultiSelect value={crops} onChange={setCrops} options={cropOptions} max={5} language={language} invalid={attempted && crops.length === 0}/>{attempted && crops.length === 0 && <small className="field-error">Please add at least one crop</small>}</label><label>Area (hectares)<input className={attempted && !(Number(area) > 0) ? 'invalid' : ''} type="number" min="0.1" step="0.1" value={area} onChange={event => setArea(event.target.value)} placeholder="2.5" aria-invalid={attempted && !(Number(area) > 0)}/>{attempted && !(Number(area) > 0) && <small className="field-error">Please enter a positive area.</small>}</label></div>
-    {attempted && !name.trim() && <small className="field-error name-error">Please enter a field name.</small>}
-    <button className="primary-btn modal-submit" type="submit">Add field <ArrowRight size={16}/></button>
+    <button type="button" className="modal-close" onClick={onClose} aria-label={t('fields.closeAddDialog')}><X size={18}/></button><span className="modal-icon"><MapPin size={20}/></span><h2 id="add-field-title">{t('fields.addField')}</h2><p>{t('fields.addIntro')}</p>
+    <label>{t('fields.fieldName')}<input className={attempted && !name.trim() ? 'invalid' : ''} value={name} onChange={event => setName(event.target.value)} placeholder={t('fields.fieldPlaceholder')} autoFocus aria-invalid={attempted && !name.trim()}/></label>
+    <div className="form-row"><label>{t('fields.crop')}<CropMultiSelect value={crops} onChange={setCrops} options={cropOptions} max={5} language={language} invalid={attempted && crops.length === 0}/>{attempted && crops.length === 0 && <small className="field-error">{t('fields.cropRequired')}</small>}</label><label>{t('fields.areaHectares')}<input className={attempted && !(Number(area) > 0) ? 'invalid' : ''} type="number" min="0.1" step="0.1" value={area} onChange={event => setArea(event.target.value)} placeholder="2.5" aria-invalid={attempted && !(Number(area) > 0)}/>{attempted && !(Number(area) > 0) && <small className="field-error">{t('fields.areaPositive')}</small>}</label></div>
+    {attempted && !name.trim() && <small className="field-error name-error">{t('fields.nameRequired')}</small>}
+    <button className="primary-btn modal-submit" type="submit">{t('fields.addField')} <ArrowRight size={16}/></button>
   </form></div>;
 }
 
 function CropMultiSelect({ value, onChange, options, max = 5, language, invalid = false }) {
+  const { t } = useTranslation();
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
   const inputRef = useRef(null);
   const listId = `crop-options-${useId().replace(/:/g, '')}`;
-  const t = cropTranslations[language] || {};
+
   const exists = name => value.some(crop => crop.toLocaleLowerCase() === name.trim().toLocaleLowerCase());
-  const translated = name => t[name] || name;
+  const translated = name => t(`crops.${name}`, { defaultValue: name });
   const availableOptions = options.map(option => typeof option === 'string' ? { name: option } : option).filter(option => option?.name);
   const filtered = availableOptions.filter(option => !exists(option.name) && `${option.name} ${translated(option.name)}`.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()));
   const exactOption = availableOptions.some(option => option.name.toLocaleLowerCase() === query.trim().toLocaleLowerCase() || translated(option.name).toLocaleLowerCase() === query.trim().toLocaleLowerCase());
@@ -566,39 +539,71 @@ function CropMultiSelect({ value, onChange, options, max = 5, language, invalid 
     }
   };
   return <div className={`crop-select ${invalid ? 'invalid' : ''}`}>
-    <div className="crop-chip-list">{value.map(crop => <span className="crop-chip" key={crop}>{crop}<button type="button" aria-label={`Remove ${crop}`} onClick={() => onChange(value.filter(item => item !== crop))}><X size={12}/></button></span>)}
-      <input ref={inputRef} role="combobox" aria-label="Crops" aria-autocomplete="list" aria-expanded={open && suggestions.length > 0 && value.length < max} aria-controls={listId} aria-activedescendant={activeIndex >= 0 ? `${listId}-${activeIndex}` : undefined} value={query} disabled={value.length >= max} placeholder={value.length ? 'Add another crop' : 'e.g. Wheat, Mustard'} onFocus={() => setOpen(true)} onBlur={() => setOpen(false)} onChange={event => { setQuery(event.target.value); setOpen(true); setActiveIndex(-1); }} onKeyDown={onKeyDown}/>
+    <div className="crop-chip-list">{value.map(crop => <span className="crop-chip" key={crop}>{t(`crops.${crop}`,{defaultValue:crop})}<button type="button" aria-label={t('fields.removeCrop',{crop:t(`crops.${crop}`,{defaultValue:crop})})} onClick={() => onChange(value.filter(item => item !== crop))}><X size={12}/></button></span>)}
+      <input ref={inputRef} role="combobox" aria-label={t('fields.crops')} aria-autocomplete="list" aria-expanded={open && suggestions.length > 0 && value.length < max} aria-controls={listId} aria-activedescendant={activeIndex >= 0 ? `${listId}-${activeIndex}` : undefined} value={query} disabled={value.length >= max} placeholder={value.length ? t('fields.addAnotherCrop') : t('fields.cropPlaceholder')} onFocus={() => setOpen(true)} onBlur={() => setOpen(false)} onChange={event => { setQuery(event.target.value); setOpen(true); setActiveIndex(-1); }} onKeyDown={onKeyDown}/>
     </div>
-    {open && value.length < max && suggestions.length > 0 && <ul className="crop-suggestions" id={listId} role="listbox">{suggestions.slice(0, 8).map((option, index) => <li id={`${listId}-${index}`} key={`${option.name}-${index}`} role="option" aria-selected={activeIndex === index} className={activeIndex === index ? 'active' : ''} onMouseDown={event => event.preventDefault()} onClick={() => choose(option)}>{option.custom ? <>{filtered.length === 0 ? <>No matches. Press Enter to add </> : <>Add </>}<b>“{option.name}”</b></> : <>{translated(option.name)}{translated(option.name) !== option.name && <small>{option.name}</small>}</>}</li>)}</ul>}
-    {value.length >= max && <small className="crop-limit">You can add up to {max} crops</small>}
+    {open && value.length < max && suggestions.length > 0 && <ul className="crop-suggestions" id={listId} role="listbox">{suggestions.slice(0, 8).map((option, index) => <li id={`${listId}-${index}`} key={`${option.name}-${index}`} role="option" aria-selected={activeIndex === index} className={activeIndex === index ? 'active' : ''} onMouseDown={event => event.preventDefault()} onClick={() => choose(option)}>{option.custom ? <>{filtered.length === 0 ? <>{t('fields.noMatchesAdd')} </> : <>{t('fields.addCustomCrop')} </>}<b>“{option.name}”</b></> : <>{translated(option.name)}{translated(option.name) !== option.name && <small>{option.name}</small>}</>}</li>)}</ul>}
+    {value.length >= max && <small className="crop-limit">{t('fields.cropLimit',{count:max})}</small>}
   </div>;
 }
 
-function Overview({ fields, onAdd, onPage, diagnosisNotes = [] }) { return <>
-  <section className="stats-grid" data-read-id="farm-summary"><Stat label="Active fields" value={String(fields.length).padStart(2,'0')} unit="fields" delta="Across 15.7 hectares" icon={MapPin} tone="mint"/><Stat label="Farm health" value="78" unit="/ 100" delta={<><ArrowUpRight size={14}/> 4 pts this month</>} icon={Leaf} tone="lime"/><Stat label="Rain expected" value="12" unit="mm" delta="Thursday · next 7 days" icon={Cloud} tone="blue"/><Stat label="Water saved" value="18" unit="%" delta="Vs. your usual schedule" icon={Droplets} tone="peach"/></section>
-  <div className="main-grid"><section className="panel field-panel"><div className="panel-heading"><div><span className="section-kicker">FIELD MONITOR</span><h2>Your fields <span className="count-badge">{fields.length}</span></h2></div><button className="text-action" onClick={() => onPage('fields')}>View all <ArrowRight size={15}/></button></div><div className="field-list">{fields.slice(0,3).map((f,i)=><div className="field-row" key={f.name} data-read-id={`field-${f.name}`}><div className={`field-thumb thumb-${i%3}`}><span>{i===0?'↗':i===1?'◌':'⌁'}</span><small>{f.ndvi} NDVI</small></div><div className="field-info"><b>{f.name}</b><span title={(f.crops||[]).join(', ')}>{formatCropSummary(f)} · {f.area} ha</span><div className="field-meta"><span className={`status-dot ${f.color}`}/><span className={f.color}>{f.status}</span><i>·</i><span>Soil moisture {f.water.toLowerCase()}</span></div></div><div className="health-wrap"><div className="health-number">{f.health}<small>%</small></div><div className="health-track"><span style={{width:`${f.health}%`}} className={f.health<70?'amber':''}/></div></div><button className="row-arrow" onClick={() => onPage('fields')}><ArrowRight size={17}/></button></div>)}</div><button className="add-field" onClick={onAdd}><Plus size={16}/> Add a field</button></section>
-  <section className="panel care-panel"><div className="panel-heading"><div><span className="section-kicker">TODAY’S PRIORITIES</span><h2>Field notes <span className="note-count">{2 + diagnosisNotes.length}</span></h2></div><button className="more-btn"><MoreHorizontal size={19}/></button></div><div className="care-note urgent" data-read-id="note-leaf"><span className="note-icon amber-icon"><Leaf size={17}/></span><div><div className="note-label">CROP HEALTH <span>· 2 HOURS AGO</span></div><b>Check River Bend soybean</b><p>Possible leaf spot detected in your latest field photo.</p><button onClick={() => onPage('diagnostics')}>Review diagnosis <ArrowRight size={14}/></button></div></div><div className="care-note" data-read-id="note-water"><span className="note-icon blue-icon"><Droplets size={17}/></span><div><div className="note-label">IRRIGATION <span>· TODAY</span></div><b>Water North Field tomorrow</b><p>Soil moisture is trending low ahead of warmer weather.</p><button onClick={() => onPage('climate')}>See water plan <ArrowRight size={14}/></button></div></div>{diagnosisNotes.slice(0, 3).map(note => <div className="care-note" key={note.id}><span className="note-icon mint"><Leaf size={17}/></span><div><div className="note-label">CROP HEALTH <span>· SAVED</span></div><b>{note.fieldName}: {note.crop || note.title}</b><p>{note.title} · {note.confidence}% confidence</p><button onClick={() => onPage('diagnostics')}>Open diagnostics <ArrowRight size={14}/></button></div></div>)}</section></div>
-  <div className="lower-grid"><section className="panel trend-panel"><div className="panel-heading"><div><span className="section-kicker">SATELLITE OBSERVATION</span><h2>Vegetation health <span className="ndvi-tag">NDVI</span></h2></div><button className="select-chip">All fields <ChevronDown size={14}/></button></div><div className="chart-caption"><span><i className="legend-dot"/>This season</span><span>Field average <b>0.72</b> <em><ArrowUpRight size={13}/> 6.4%</em></span></div><div className="chart"><div className="ylabels"><span>.9</span><span>.7</span><span>.5</span><span>.3</span></div><div className="chart-main"><div className="gridline g1"/><div className="gridline g2"/><div className="gridline g3"/><div className="gridline g4"/><svg viewBox="0 0 640 150" preserveAspectRatio="none" role="img" aria-label="Vegetation health rose steadily over the past five weeks"><defs><linearGradient id="chartFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="var(--palette-72ae61)" stopOpacity=".19"/><stop offset="100%" stopColor="var(--palette-72ae61)" stopOpacity="0"/></linearGradient></defs><path d="M0,100 C34,95 55,102 80,86 S130,80 160,83 S207,65 240,72 S295,79 320,56 S377,65 400,49 S458,58 480,37 S538,47 560,34 S608,35 640,20 L640,150 L0,150Z" fill="url(#chartFill)"/><path d="M0,100 C34,95 55,102 80,86 S130,80 160,83 S207,65 240,72 S295,79 320,56 S377,65 400,49 S458,58 480,37 S538,47 560,34 S608,35 640,20" fill="none" stroke="var(--palette-6aa15b)" strokeWidth="3" vectorEffect="non-scaling-stroke" strokeLinecap="round"/><circle cx="640" cy="20" r="5" fill="var(--surface)" stroke="var(--palette-6aa15b)" strokeWidth="3" vectorEffect="non-scaling-stroke"/></svg><div className="xlabels"><span>Sep 1</span><span>Sep 8</span><span>Sep 15</span><span>Sep 22</span><span>Sep 29</span></div></div></div><div className="chart-foot"><span><i className="satellite-dot"/>Last satellite pass: 2 days ago</span><span>Sample data</span></div></section>
-  <section className="panel weather-panel"><div className="panel-heading"><div><span className="section-kicker">KHANNA, PUNJAB</span><h2>Next 5 days</h2></div><button className="more-btn"><MoreHorizontal size={19}/></button></div><div className="weather-summary"><div><b>28°</b><span>Partly cloudy</span></div><CloudSun size={42} strokeWidth={1.4}/></div><div className="weather-stats"><span><Droplets size={15}/> 62% humidity</span><span><Wind size={15}/> 11 km/h wind</span></div><div className="forecast">{[['TUE','☀','29°','19°'],['WED','🌤','27°','18°'],['THU','🌧','24°','17°'],['FRI','🌦','25°','18°'],['SAT','☀','28°','19°']].map(d=><div className="forecast-day" key={d[0]}><small>{d[0]}</small><span>{d[1]}</span><b>{d[2]}</b><i>{d[3]}</i></div>)}</div><div className="weather-advice"><span><Droplets size={15}/></span><p><b>Rain likely Thursday</b> — consider holding irrigation until after the shower.</p></div></section></div>
-  <div className="privacy-strip"><ShieldCheck size={17}/><span><b>Built for your land, wherever it is.</b> Field insights adapt to your region and local growing practices.</span><button onClick={() => onPage('network')}>About the network <ArrowRight size={14}/></button></div>
-  </>; }
+function Overview({ fields, onAdd, onPage, diagnosisNotes = [] }) {
+  const { t, i18n } = useTranslation();
+  const stats = [
+    { label: t('overview.stats.activeFields'), value: String(fields.length).padStart(2,'0'), unit: t('overview.stats.fields'), delta: t('overview.stats.area', { area: fields.reduce((sum, field) => sum + field.area, 0).toFixed(1) }), icon: MapPin, tone: 'mint' },
+    { label: t('overview.stats.farmHealth'), value: '78', unit: t('overview.stats.outOf100'), delta: <><ArrowUpRight size={14}/> {t('overview.stats.pointsMonth', { count: 4 })}</>, icon: Leaf, tone: 'lime' },
+    { label: t('overview.stats.rainExpected'), value: '12', unit: t('overview.stats.mm'), delta: t('overview.stats.rainDays'), icon: Cloud, tone: 'blue' },
+    { label: t('overview.stats.waterSaved'), value: '18', unit: '%', delta: t('overview.stats.vsUsual'), icon: Droplets, tone: 'peach' },
+  ];
+  const weekDates = Array.from({ length: 5 }, (_, index) => new Date(Date.now() + (index + 1) * 86400000));
+  return <>
+    <section className="stats-grid" data-read-id="farm-summary">{stats.map((stat,index) => <Stat key={index} {...stat}/>)}</section>
+    <div className="main-grid">
+      <section className="panel field-panel"><div className="panel-heading"><div><span className="section-kicker">{t('overview.fieldMonitor')}</span><h2>{t('overview.yourFields')} <span className="count-badge">{fields.length}</span></h2></div><button className="text-action" onClick={() => onPage('fields')}>{t('common.viewAll')} <ArrowRight size={15}/></button></div>
+        <div className="field-list">{fields.slice(0,3).map((field,index)=><div className="field-row" key={field.name} data-read-id={`field-${field.name}`}><div className={`field-thumb thumb-${index%3}`}><span>{index===0?'↗':index===1?'◌':'⌁'}</span><small>{field.ndvi} NDVI</small></div><div className="field-info"><b>{field.name}</b><span title={(field.crops||[]).map(crop=>t(`crops.${crop}`,{defaultValue:crop})).join(', ')}>{formatCropSummary(field,t)} · {field.area} {t('common.hectaresShort')}</span><div className="field-meta"><span className={`status-dot ${field.color}`}/><span className={field.color}>{t(field.statusKey || (field.health < 70 ? 'fields.statuses.attention' : 'fields.statuses.healthy'))}</span><i>·</i><span>{t('fields.soilMoisture')} {t(`fields.water.${String(field.water).toLowerCase()}`)}</span></div></div><div className="health-wrap"><div className="health-number">{field.health}<small>%</small></div><div className="health-track"><span style={{width:`${field.health}%`}} className={field.health<70?'amber':''}/></div></div><button className="row-arrow" onClick={() => onPage('fields')} aria-label={t('common.openField',{name:field.name})}><ArrowRight size={17}/></button></div>)}</div><button className="add-field" onClick={onAdd}><Plus size={16}/> {t('fields.addField')}</button>
+      </section>
+      <section className="panel care-panel"><div className="panel-heading"><div><span className="section-kicker">{t('overview.todayPriorities')}</span><h2>{t('overview.fieldNotes')} <span className="note-count">{2 + diagnosisNotes.length}</span></h2></div><button className="more-btn" aria-label={t('common.moreOptions')}><MoreHorizontal size={19}/></button></div>
+        <div className="care-note urgent" data-read-id="note-leaf"><span className="note-icon amber-icon"><Leaf size={17}/></span><div><div className="note-label">{t('overview.cropHealth')} <span>· {t('overview.hoursAgo',{count:2})}</span></div><b>{t('overview.checkFieldCrop',{field:'River Bend',crop:t('crops.Soybean')})}</b><p>{t('overview.leafSpotDetected')}</p><button onClick={() => onPage('diagnostics')}>{t('diagnostics.reviewDiagnosis')} <ArrowRight size={14}/></button></div></div>
+        <div className="care-note" data-read-id="note-water"><span className="note-icon blue-icon"><Droplets size={17}/></span><div><div className="note-label">{t('overview.irrigation')} <span>· {t('overview.today')}</span></div><b>{t('overview.waterFieldTomorrow',{field:'North Field'})}</b><p>{t('overview.moistureLowWeather')}</p><button onClick={() => onPage('climate')}>{t('climate.seeWaterPlan')} <ArrowRight size={14}/></button></div></div>
+        {diagnosisNotes.slice(0,3).map(note=><div className="care-note" key={note.id}><span className="note-icon mint"><Leaf size={17}/></span><div><div className="note-label">{t('overview.cropHealth')} <span>· {t('overview.saved')}</span></div><b>{note.fieldName}: {note.crop ? t(`crops.${note.crop}`,{defaultValue:note.crop}) : t(note.titleKey || 'diagnostics.healthyCheck')}</b><p>{note.title || t(note.titleKey || 'diagnostics.healthyCheck')} · {t('diagnostics.confidencePercent',{count:note.confidence})}</p><button onClick={() => onPage('diagnostics')}>{t('diagnostics.openDiagnostics')} <ArrowRight size={14}/></button></div></div>)}
+      </section>
+    </div>
+    <div className="lower-grid"><section className="panel trend-panel"><div className="panel-heading"><div><span className="section-kicker">{t('vegetation.satelliteObservation')}</span><h2>{t('vegetation.title')} <span className="ndvi-tag">NDVI</span></h2></div><button className="select-chip">{t('common.allFields')} <ChevronDown size={14}/></button></div><div className="chart-caption"><span><i className="legend-dot"/>{t('vegetation.thisSeason')}</span><span>{t('vegetation.fieldAverage')} <b>0.72</b> <em><ArrowUpRight size={13}/> 6.4%</em></span></div><div className="chart"><div className="ylabels"><span>.9</span><span>.7</span><span>.5</span><span>.3</span></div><div className="chart-main"><div className="gridline g1"/><div className="gridline g2"/><div className="gridline g3"/><div className="gridline g4"/><svg viewBox="0 0 640 150" preserveAspectRatio="none" role="img" aria-label={t('vegetation.chartAlt')}><defs><linearGradient id="chartFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="var(--palette-72ae61)" stopOpacity=".19"/><stop offset="100%" stopColor="var(--palette-72ae61)" stopOpacity="0"/></linearGradient></defs><path d="M0,100 C34,95 55,102 80,86 S130,80 160,83 S207,65 240,72 S295,79 320,56 S377,65 400,49 S458,58 480,37 S538,47 560,34 S608,35 640,20 L640,150 L0,150Z" fill="url(#chartFill)"/><path d="M0,100 C34,95 55,102 80,86 S130,80 160,83 S207,65 240,72 S295,79 320,56 S377,65 400,49 S458,58 480,37 S538,47 560,34 S608,35 640,20" fill="none" stroke="var(--palette-6aa15b)" strokeWidth="3" vectorEffect="non-scaling-stroke" strokeLinecap="round"/><circle cx="640" cy="20" r="5" fill="var(--surface)" stroke="var(--palette-6aa15b)" strokeWidth="3" vectorEffect="non-scaling-stroke"/></svg><div className="xlabels">{[1,8,15,22,29].map(day=><span key={day}>{new Intl.DateTimeFormat(i18n.resolvedLanguage,{month:'short'}).format(new Date(2026,8,day))} {day}</span>)}</div></div></div><div className="chart-foot"><span><i className="satellite-dot"/>{t('vegetation.lastSatellitePass',{time:t('vegetation.daysAgo',{count:2})})}</span><span>{t('common.sampleData')}</span></div></section>
+      <section className="panel weather-panel"><div className="panel-heading"><div><span className="section-kicker">{t('dashboard.khanna').toLocaleUpperCase(i18n.resolvedLanguage)}</span><h2>{t('forecast.nextDays',{count:5})}</h2></div><button className="more-btn" aria-label={t('common.moreOptions')}><MoreHorizontal size={19}/></button></div><div className="weather-summary"><div><b>28°</b><span>{t('weather.partlyCloudy')}</span></div><CloudSun size={42} strokeWidth={1.4}/></div><div className="weather-stats"><span><Droplets size={15}/> 62% {t('weather.humidity')}</span><span><Wind size={15}/> 11 km/h {t('weather.wind')}</span></div><div className="forecast">{[['Tue','☀','29°','19°'],['Wed','🌤','27°','18°'],['Thu','🌧','24°','17°'],['Fri','🌦','25°','18°'],['Sat','☀','28°','19°']].map((day,index)=><div className="forecast-day" key={day[0]}><small>{new Intl.DateTimeFormat(i18n.resolvedLanguage,{weekday:'short'}).format(weekDates[index])}</small><span>{day[1]}</span><b>{day[2]}</b><i>{day[3]}</i></div>)}</div><div className="weather-advice"><span><Droplets size={15}/></span><p><b>{t('weather.rainLikely',{day:t('weather.weekday.thursday')})}</b> — {t('weather.holdIrrigation')}</p></div></section></div>
+    <div className="privacy-strip"><ShieldCheck size={17}/><span><b>{t('overview.privacyTitle')}</b> {t('overview.privacyCopy')}</span><button onClick={() => onPage('network')}>{t('overview.aboutNetwork')} <ArrowRight size={14}/></button></div>
+  </>;
+}
 function Stat({label,value,unit,delta,icon:Icon,tone}) { return <div className="stat-card"><div className={`stat-icon ${tone}`}><Icon size={18}/></div><span className="stat-label">{label}</span><div className="stat-value">{value}<small>{unit}</small></div><div className="stat-delta">{delta}</div><div className={`stat-spark ${tone}`}><svg viewBox="0 0 90 30" preserveAspectRatio="none"><path d="M0 23 C12 22 14 19 24 21 S36 25 46 13 S60 16 67 11 S79 14 90 4" fill="none" stroke="currentColor" strokeWidth="2" vectorEffect="non-scaling-stroke"/></svg></div></div>; }
 function Diagnostics({ image, diagnosis, status, error, analysesUsed, inputRef, onFile, onAnalyze, onDemo, onReset, onListen, onSave, onHelp, fields, crops, selectedCrop, onCropChange, language }) {
+  const { t } = useTranslation();
   const choose = file => onFile(file);
   const options = fields.map(field => field.name);
-  const languageLabel = { en: 'English', hi: 'Hindi', pt: 'Portuguese', zh: 'Chinese' }[diagnosis?.apiLanguage] || 'English';
+  const apiLanguage = diagnosis?.apiLanguage === 'pt' ? 'pt-BR' : diagnosis?.apiLanguage === 'zh' ? 'zh-CN' : diagnosis?.apiLanguage || 'en';
+  const languageLabel = t(`languages.${apiLanguage}`,{defaultValue:t('languages.en')});
+  const apiLanguageNote = diagnosis?.languageFallback ? t('diagnostics.apiEnglishFallback',{language:languageLabel}) : diagnosis ? t('diagnostics.apiLanguage',{language:languageLabel}) : t('diagnostics.apiLanguagesAvailable');
   return <div className="feature-grid"><section className="panel feature-main" data-read-id={diagnosis ? 'diagnosis' : 'diagnosis-prompt'}>
-    <div className="panel-heading"><div><span className="section-kicker">AI CROP CHECK</span><h2>Photo diagnosis</h2></div><span className="demo-badge">{diagnosis?.demo ? 'DEMO RESULT' : diagnosis ? 'CROP.HEALTH' : 'CROP.HEALTH'}</span></div>
-    <p className="feature-intro">Take a clear photo of the affected leaf. We’ll check for common crop health signals and suggest what to do next.</p>
-    {crops.length > 0 && <label className="diagnostic-crop">Crop for this check<select value={selectedCrop || crops[0]} onChange={event => onCropChange(event.target.value)}>{crops.map(crop => <option key={crop}>{crop}</option>)}</select></label>}
+    <div className="panel-heading"><div><span className="section-kicker">{t('diagnostics.aiCropCheck')}</span><h2>{t('diagnostics.photoDiagnosis')}</h2></div><span className="demo-badge">{diagnosis?.demo ? t('diagnostics.demoResult') : 'crop.health'}</span></div>
+    <p className="feature-intro">{t('diagnostics.intro')}</p>
+    {crops.length > 0 && <label className="diagnostic-crop">{t('diagnostics.cropForCheck')}<select value={selectedCrop || crops[0]} onChange={event => onCropChange(event.target.value)}>{crops.map(crop => <option key={crop}>{t(`crops.${crop}`,{defaultValue:crop})}</option>)}</select></label>}
     <PhotoUploader image={image} status={status} error={error} analysesUsed={analysesUsed} onChoose={choose} onChange={() => inputRef.current?.click()} onAnalyze={onAnalyze} onDemo={onDemo}/>
     {diagnosis && <DiagnosisResult result={{ ...diagnosis, fieldOptions: options }} demo={diagnosis.demo} onSave={onSave} onListen={onListen} onHelp={onHelp}/>}
-    <div className="diagnosis-note"><ShieldCheck size={15}/><span>Results are for guidance. Confirm diagnoses with a local agronomist before treatment. {diagnosis?.languageFallback ? `The API returned English details because localized ${languageLabel} details were unavailable.` : `API language: ${diagnosis ? languageLabel : (['Hindi', 'Mandarin (China)', 'Portuguese (Brazil)', 'English', 'English (South Africa)'].includes(language) ? language : `English (the API does not list ${language})`)}.`}</span></div>
+    <div className="diagnosis-note"><ShieldCheck size={15}/><span>{t('diagnostics.disclaimer')} {apiLanguageNote}</span></div>
     <input ref={inputRef} className="diagnosis-file-input" type="file" accept="image/jpeg,image/png" capture="environment" onChange={event => { choose(event.target.files?.[0]); event.target.value = ''; }}/>
-  </section><aside className="panel side-tips"><span className="section-kicker">FOR A CLEARER CHECK</span><h2>Photo tips</h2><div className="tip-item"><span>01</span><div><b>Get close</b><p>Fill the frame with the affected leaf.</p></div></div><div className="tip-item"><span>02</span><div><b>Use natural light</b><p>Avoid shadows and direct glare.</p></div></div><div className="tip-item"><span>03</span><div><b>Show both sides</b><p>Include the leaf surface and underside.</p></div></div><div className="tip-callout"><Leaf size={17}/><p>Some symptoms look alike. Local expertise helps you choose the right next step.</p></div></aside></div>;
+  </section><aside className="panel side-tips"><span className="section-kicker">{t('diagnostics.clearerCheck')}</span><h2>{t('diagnostics.photoTips')}</h2><div className="tip-item"><span>01</span><div><b>{t('diagnostics.tipCloseTitle')}</b><p>{t('diagnostics.tipCloseCopy')}</p></div></div><div className="tip-item"><span>02</span><div><b>{t('diagnostics.tipLightTitle')}</b><p>{t('diagnostics.tipLightCopy')}</p></div></div><div className="tip-item"><span>03</span><div><b>{t('diagnostics.tipSidesTitle')}</b><p>{t('diagnostics.tipSidesCopy')}</p></div></div><div className="tip-callout"><Leaf size={17}/><p>{t('diagnostics.tipCallout')}</p></div></aside></div>;
 }
-function Fields({fields,onAdd}) { return <section className="panel full-panel" data-read-id="fields-intro"><div className="panel-heading"><div><span className="section-kicker">FARM OVERVIEW</span><h2>Field health at a glance</h2></div><button className="primary-btn" onClick={onAdd}><Plus size={16}/> Add field</button></div><p className="feature-intro">Sample field observations are shown for this MVP.</p><div className="table-head"><span>FIELD</span><span>HEALTH</span><span>VEGETATION INDEX</span><span>SOIL MOISTURE</span><span>STATUS</span></div>{fields.map((f,i)=><div className="table-row" key={f.name} data-read-id={`field-${f.name}`}><div className="table-field"><span className={`table-thumb thumb-${i%3}`}><Wheat size={18}/></span><span><b>{f.name}</b><small title={(f.crops||[]).join(', ')}>{formatCropSummary(f)} · {f.area} ha</small></span></div><div className="table-health">{f.health}%</div><div>{f.ndvi} <span className="muted-text">NDVI</span></div><div>{f.water}</div><div><span className={`table-status ${f.color}`}><i/> {f.status}</span></div></div>)}</section>; }
-function Climate() { return <div className="feature-grid climate-grid"><section className="panel feature-main"><div className="panel-heading"><div><span className="section-kicker">LOCAL CONDITIONS · KHANNA</span><h2>Water plan</h2></div><span className="demo-badge">SAMPLE FORECAST</span></div><div className="big-weather" data-read-id="weather"><CloudSun size={55} strokeWidth={1.3}/><div><b>28°</b><span>Partly cloudy · Feels like 30°</span></div><div className="weather-location"><MapPin size={14}/> Punjab, India</div></div><div className="week-strip">{[['Today','☀','28°','Dry'],['Tue','☀','29°','Dry'],['Wed','🌤','27°','Cloudy'],['Thu','🌧','24°','12 mm rain'],['Fri','🌦','25°','Light rain'],['Sat','☀','28°','Dry'],['Sun','☀','30°','Dry']].map(x=><div key={x[0]}><small>{x[0]}</small><span>{x[1]}</span><b>{x[2]}</b><i>{x[3]}</i></div>)}</div><div className="irrigation-card" data-read-id="irrigation"><div className="irrigation-icon"><Droplets size={20}/></div><div><span className="section-kicker">SUGGESTED IRRIGATION</span><h3>Wait until after Thursday’s rain</h3><p>Sample guidance: check soil moisture again Friday morning before irrigating North Field.</p></div><span className="recommend-tag">SAMPLE</span></div></section><aside className="panel side-tips"><span className="section-kicker">FIELD CONDITIONS</span><h2>What to watch</h2><div className="condition-row"><span className="note-icon blue-icon"><Droplets size={17}/></span><div><b>Soil moisture</b><p>Moderate · River Bend</p></div><span className="condition-tag">CHECK</span></div><div className="condition-row"><span className="note-icon peach-icon"><Thermometer size={17}/></span><div><b>Temperature</b><p>28° now · 30° high</p></div></div><div className="condition-row"><span className="note-icon mint"><Wind size={17}/></span><div><b>Wind</b><p>11 km/h · Light breeze</p></div></div><div className="tip-callout"><ShieldCheck size={17}/><p>Forecast and irrigation values are sample data. Connect a local weather provider for live advice.</p></div></aside></div>; }
-function Network({country}) { return <div className="network-layout"><section className="panel network-hero" data-read-id="network"><span className="network-orb"><Globe2 size={34}/></span><span className="section-kicker">SOVEREIGN BY DESIGN</span><h2>Local knowledge.<br/><em>Shared progress.</em></h2><p>Fieldwise is designed to let participating regions improve agricultural models together while keeping raw farm data within local boundaries.</p><div className="network-stats"><div><b>05</b><span>Participating regions</span></div><div><b>01</b><span>Shared model registry</span></div><div><b>0</b><span>Raw farm records shared</span></div></div></section><section className="panel network-detail"><div className="panel-heading"><div><span className="section-kicker">REGIONAL NODES</span><h2>Network status</h2></div><span className="live-pill"><i/> DESIGN PREVIEW</span></div><p className="feature-intro">Example deployment status. No live federated training is connected in this MVP.</p>{[['India','IND','Punjab node · local data boundary','Active'],['Brazil','BRA','Cerrado node · local data boundary','Planned'],['China','CHN','Regional node · local data boundary','Planned'],['Russia','RUS','Regional node · local data boundary','Planned'],['South Africa','ZAF','Regional node · local data boundary','Planned']].map((r,i)=><div className="node-row" key={r[0]}><span className="country-flag">{['🇮🇳','🇧🇷','🇨🇳','🇷🇺','🇿🇦'][i]}</span><div><b>{r[0]}</b><small>{r[2]}</small></div><span className={`node-status ${i===0?'node-active':''}`}><i/>{r[3]}</span></div>)}<div className="network-callout"><ShieldCheck size={17}/><p><b>Designed for data sovereignty</b><br/>In a production system, only reviewed model updates would leave a regional node. Farmer records remain local.</p></div></section><div className="network-foot"><span>Current region: <b>{country}</b></span><span>Prototype status · Model exchange not connected</span></div></div>; }
+function Fields({fields,onAdd}) {
+  const {t}=useTranslation();
+  return <section className="panel full-panel" data-read-id="fields-intro"><div className="panel-heading"><div><span className="section-kicker">{t('fields.overview')}</span><h2>{t('fields.healthAtGlance')}</h2></div><button className="primary-btn" onClick={onAdd}><Plus size={16}/> {t('fields.addField')}</button></div><p className="feature-intro">{t('fields.sampleObservations')}</p><div className="table-head"><span>{t('fields.field')}</span><span>{t('fields.health')}</span><span>{t('fields.vegetationIndex')}</span><span>{t('fields.soilMoisture')}</span><span>{t('fields.tableStatus')}</span></div>{fields.map((field,index)=><div className="table-row" key={field.name} data-read-id={`field-${field.name}`}><div className="table-field"><span className={`table-thumb thumb-${index%3}`}><Wheat size={18}/></span><span><b>{field.name}</b><small title={(field.crops||[]).map(crop=>t(`crops.${crop}`,{defaultValue:crop})).join(', ')}>{formatCropSummary(field,t)} · {field.area} {t('common.hectaresShort')}</small></span></div><div className="table-health">{field.health}%</div><div>{field.ndvi} <span className="muted-text">NDVI</span></div><div>{t(`fields.water.${String(field.water).toLowerCase()}`)}</div><div><span className={`table-status ${field.color}`}><i/> {t(field.statusKey || (field.health < 70 ? 'fields.statuses.attention' : 'fields.statuses.healthy'))}</span></div></div>)}</section>;
+}
+function Climate() {
+  const {t,i18n}=useTranslation();
+  const forecast=[['today','☀','28°','dry'],['tuesday','☀','29°','dry'],['wednesday','🌤','27°','cloudy'],['thursday','🌧','24°','rain'],['friday','🌦','25°','lightRain'],['saturday','☀','28°','dry'],['sunday','☀','30°','dry']];
+  return <div className="feature-grid climate-grid"><section className="panel feature-main"><div className="panel-heading"><div><span className="section-kicker">{t('climate.localConditions')} · {t('dashboard.khanna')}</span><h2>{t('climate.waterPlan')}</h2></div><span className="demo-badge">{t('climate.sampleForecast')}</span></div><div className="big-weather" data-read-id="weather"><CloudSun size={55} strokeWidth={1.3}/><div><b>28°</b><span>{t('weather.partlyCloudy')} · {t('weather.feelsLike',{value:30})}</span></div><div className="weather-location"><MapPin size={14}/> {t('countries.India')}</div></div><div className="week-strip">{forecast.map((day,index)=><div key={day[0]}><small>{index===0?t('forecast.today'):new Intl.DateTimeFormat(i18n.resolvedLanguage,{weekday:'short'}).format(new Date(Date.now()+(index)*86400000))}</small><span>{day[1]}</span><b>{day[2]}</b><i>{t(`climate.${day[3]}`)}</i></div>)}</div><div className="irrigation-card" data-read-id="irrigation"><div className="irrigation-icon"><Droplets size={20}/></div><div><span className="section-kicker">{t('climate.suggestedIrrigation')}</span><h3>{t('climate.waitAfterRain')}</h3><p>{t('climate.guidance')}</p></div><span className="recommend-tag">{t('common.sample')}</span></div></section><aside className="panel side-tips"><span className="section-kicker">{t('climate.fieldConditions')}</span><h2>{t('climate.whatToWatch')}</h2><div className="condition-row"><span className="note-icon blue-icon"><Droplets size={17}/></span><div><b>{t('climate.soilMoisture')}</b><p>{t('fields.water.moderate')} · River Bend</p></div><span className="condition-tag">{t('climate.check')}</span></div><div className="condition-row"><span className="note-icon peach-icon"><Thermometer size={17}/></span><div><b>{t('climate.temperature')}</b><p>{t('climate.temperatureRange',{now:28,high:30})}</p></div></div><div className="condition-row"><span className="note-icon mint"><Wind size={17}/></span><div><b>{t('climate.wind')}</b><p>{t('climate.windSpeed')}</p></div></div><div className="tip-callout"><ShieldCheck size={17}/><p>{t('climate.sampleNotice')}</p></div></aside></div>;
+}
+function Network({country}) {
+ const {t}=useTranslation();
+ const nodes=[['India','IND','India'],['Brazil','BRA','Brazil'],['China','CHN','China'],['Russia','RUS','Russia'],['South Africa','ZAF','South Africa']];
+ return <div className="network-layout"><section className="panel network-hero" data-read-id="network"><span className="network-orb"><Globe2 size={34}/></span><span className="section-kicker">{t('network.sovereignDesign')}</span><h2>{t('network.heroTitle')}</h2><p>{t('network.heroCopy')}</p><div className="network-stats"><div><b>05</b><span>{t('network.regions')}</span></div><div><b>01</b><span>{t('network.modelRegistry')}</span></div><div><b>0</b><span>{t('network.recordsShared')}</span></div></div></section><section className="panel network-detail"><div className="panel-heading"><div><span className="section-kicker">{t('network.regionalNodes')}</span><h2>{t('network.status')}</h2></div><span className="live-pill"><i/> {t('network.designPreview')}</span></div><p className="feature-intro">{t('network.exampleStatus')}</p>{nodes.map(([name,code,region],index)=><div className="node-row" key={code}><span className="country-flag">{['🇮🇳','🇧🇷','🇨🇳','🇷🇺','🇿🇦'][index]}</span><div><b>{t(`countries.${name}`)}</b><small>{t(`network.node.${region}`)}</small></div><span className={`node-status ${index===0?'node-active':''}`}><i/>{t(index===0?'network.active':'network.planned')}</span></div>)}<div className="network-callout"><ShieldCheck size={17}/><p><b>{t('network.sovereigntyTitle')}</b><br/>{t('network.sovereigntyCopy')}</p></div></section><div className="network-foot"><span>{t('network.currentRegion')}: <b>{t(`countries.${country}`,{defaultValue:country})}</b></span><span>{t('network.prototypeStatus')}</span></div></div>;
+}
 
 export default App;

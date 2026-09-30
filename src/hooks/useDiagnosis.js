@@ -19,8 +19,8 @@ export function useDiagnosis() {
 
   const selectFile = useCallback(nextFile => {
     if (!nextFile) return;
-    if (!['image/jpeg', 'image/png'].includes(nextFile.type)) { setError('Choose a JPG or PNG image.'); return; }
-    if (nextFile.size > 10 * 1024 * 1024) { setError('This image is over 10 MB. Choose a smaller photo.'); return; }
+    if (!['image/jpeg', 'image/png'].includes(nextFile.type)) { setError('diagnostics.errors.badImage'); return; }
+    if (nextFile.size > 10 * 1024 * 1024) { setError('diagnostics.errors.imageTooLarge'); return; }
     setFile(nextFile);
     setImage(current => { if (current) URL.revokeObjectURL(current); return URL.createObjectURL(nextFile); });
     setResult(null);
@@ -39,7 +39,7 @@ export function useDiagnosis() {
       setStatus(response.confidence < 0.4 || !response.disease ? 'lowConfidence' : 'success');
       return response;
     } catch (reason) {
-      setError(reason.message || 'The photo check failed. Please try again.');
+      setError(reason.code || 'diagnostics.errors.failed');
       setStatus('error');
       return null;
     }
